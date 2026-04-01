@@ -1,0 +1,7 @@
+{
+  "name": "مزاجي - Mazagy",
+  "description": "منصة تجارة إلكترونية متكاملة للبائعين والمشترين مع لوحة تحكم متطورة",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
