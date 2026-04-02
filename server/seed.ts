@@ -72,7 +72,7 @@ export const seedData = async () => {
         price: Math.floor(Math.random() * 1000) + 100,
         category: categories[i % categories.length],
         images: [`https://picsum.photos/seed/shop${i}/600/600`],
-        seller: sellers[i % sellers.length]._id,
+        sellerId: sellers[i % sellers.length]._id,
         stock: Math.floor(Math.random() * 50) + 5,
         condition: 'new'
       });
@@ -83,16 +83,16 @@ export const seedData = async () => {
     const statuses = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
     for (let i = 0; i < 8; i++) {
       const order = new Order({
-        buyer: admin._id, // Using admin as a buyer for mock orders
-        seller: sellers[i % sellers.length]._id,
-        items: [{
-          product: products[i]._id,
-          quantity: 1,
-          price: products[i].price
-        }],
-        totalAmount: products[i].price,
+        productId: products[i]._id,
+        sellerId: sellers[i % sellers.length]._id,
+        buyerId: admin._id, // Using admin as a buyer for mock orders
+        buyerName: admin.name,
+        buyerPhone: admin.phone,
+        buyerAddress: admin.location.address,
+        quantity: 1,
+        price: products[i].price,
+        deliveryFee: 50,
         status: statuses[i % statuses.length],
-        shippingAddress: '123 Test St, Cairo',
         paymentMethod: 'cash_on_delivery'
       });
       await order.save();
