@@ -1,21 +1,21 @@
-import express from "express";
-import { Product } from "../models/Product";
-import { User } from "../models/User";
-import { Notification } from "../models/Notification";
+import express from 'express';
+import { Product } from '../models/Product.js';
+import { User } from '../models/User.js';
+import { Notification } from '../models/Notification.js';
 import {
   authMiddleware,
   roleMiddleware,
   lockMiddleware,
-} from "../middleware/auth";
-import { uploadToCloudinary, deleteFromCloudinary } from "../utils/cloudinary";
+} from '../middleware/auth.js';
+import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
 
 const router = express.Router();
 
 // Create Product
 router.post(
-  "/",
+  '/',
   authMiddleware,
-  roleMiddleware(["seller"]),
+  roleMiddleware(['seller']),
   lockMiddleware,
   async (req, res) => {
     try {
@@ -38,9 +38,10 @@ router.post(
         sizes,
       } = req.body;
 
+      const imagesArray = Array.isArray(images) ? images : [];
       const imageUrls = await Promise.all(
-        images.map(async (img: string) => {
-          if (img.startsWith("data:image/")) {
+        imagesArray.map(async (img: string) => {
+          if (img.startsWith('data:image/')) {
             return await uploadToCloudinary(img);
           }
           return img;
