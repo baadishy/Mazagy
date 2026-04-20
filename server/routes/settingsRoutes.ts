@@ -1,7 +1,7 @@
 import express from 'express';
-import { Settings } from '../models/Settings';
-import { User } from '../models/User';
-import { authMiddleware, roleMiddleware } from '../middleware/auth';
+import { Settings } from '../models/Settings.js';
+import { User } from '../models/User.js';
+import { authMiddleware, roleMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 

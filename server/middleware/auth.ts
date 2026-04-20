@@ -1,8 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
-import { User } from '../models/User';
+import { User } from '../models/User.js';
 
-import { JWT_SECRET } from '../config';
+import { JWT_SECRET } from '../config.js';
 
 export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const token = req.cookies.token || req.headers.authorization?.split(' ')[1];

@@ -1,11 +1,11 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
-import { User } from '../models/User';
-import { Settings } from '../models/Settings';
-import { authMiddleware } from '../middleware/auth';
+import { User } from '../models/User.js';
+import { Settings } from '../models/Settings.js';
+import { authMiddleware } from '../middleware/auth.js';
 
-import { JWT_SECRET } from '../config';
+import { JWT_SECRET } from '../config.js';
 
 const router = express.Router();
 
