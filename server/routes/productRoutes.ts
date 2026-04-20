@@ -1,9 +1,9 @@
 import express from 'express';
-import { Product } from '../models/Product.js';
-import { User } from '../models/User.js';
-import { Notification } from '../models/Notification.js';
-import { authMiddleware, roleMiddleware, lockMiddleware } from '../middleware/auth.js';
-import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinary.js';
+import { Product } from '../models/Product';
+import { User } from '../models/User';
+import { Notification } from '../models/Notification';
+import { authMiddleware, roleMiddleware, lockMiddleware } from '../middleware/auth';
+import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinary';
 
 const router = express.Router();
 

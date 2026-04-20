@@ -3,13 +3,10 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "engines": {
-    "node": "20.x"
-  },
   "scripts": {
-    "dev": "node --import tsx api/index.ts",
+    "dev": "node --import tsx server.ts",
     "build": "vite build",
-    "start": "NODE_ENV=production DISABLE_VITE=true npx tsx api/index.ts",
+    "start": "NODE_ENV=production DISABLE_VITE=true npx tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"

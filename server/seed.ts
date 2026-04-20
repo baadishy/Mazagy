@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
-import { User } from './models/User.js';
-import { Product } from './models/Product.js';
-import { Order } from './models/Order.js';
-import { Notification } from './models/Notification.js';
-import { Review } from './models/Review.js';
+import { User } from './models/User';
+import { Product } from './models/Product';
+import { Order } from './models/Order';
+import { Notification } from './models/Notification';
+import { Review } from './models/Review';
 
 export const seedData = async () => {
   try {
