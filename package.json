@@ -5,9 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node --import tsx server.ts",
-    "build": "vite build && npm run build:server",
-    "build:server": "esbuild server.ts --bundle --platform=node --format=esm --outfile=dist/server.js --external:vite --external:express --external:bcryptjs --external:jsonwebtoken --external:cookie-parser --external:dotenv --external:mongoose --external:cloudinary --external:firebase-admin",
-    "start": "node dist/server.js",
+    "build": "vite build",
+    "start": "NODE_ENV=production DISABLE_VITE=true npx tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
