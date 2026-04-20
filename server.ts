@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -135,8 +134,11 @@ const initDB = async () => {
 initDB();
 
 // Vite / Static files
-if (process.env.NODE_ENV !== 'production' && process.env.DISABLE_VITE !== 'true') {
+// Never run Vite dev middleware inside Vercel Functions.
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'production' && process.env.DISABLE_VITE !== 'true') {
   const startVite = async () => {
+    // Only load Vite in local dev. Importing Vite in a Vercel Function can fail due to native deps.
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
