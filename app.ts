@@ -11,16 +11,16 @@ import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
-import { connectDB } from './server/db';
-import { seedData } from './server/seed';
-import authRoutes from './server/routes/authRoutes';
-import productRoutes from './server/routes/productRoutes';
-import orderRoutes from './server/routes/orderRoutes';
-import notificationRoutes from './server/routes/notificationRoutes';
-import reviewRoutes from './server/routes/reviewRoutes';
-import settingsRoutes from './server/routes/settingsRoutes';
+import { connectDB } from './server/db.js';
+import { seedData } from './server/seed.js';
+import authRoutes from './server/routes/authRoutes.js';
+import productRoutes from './server/routes/productRoutes.js';
+import orderRoutes from './server/routes/orderRoutes.js';
+import notificationRoutes from './server/routes/notificationRoutes.js';
+import reviewRoutes from './server/routes/reviewRoutes.js';
+import settingsRoutes from './server/routes/settingsRoutes.js';
 
-import { Product } from './server/models/Product';
+import { Product } from './server/models/Product.js';
 
 dotenv.config();
 

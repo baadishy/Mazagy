@@ -1,11 +1,11 @@
 import express from 'express';
-import { Order } from '../models/Order';
-import { Product } from '../models/Product';
-import { User } from '../models/User';
-import { Settings } from '../models/Settings';
-import { Review } from '../models/Review';
-import { Notification } from '../models/Notification';
-import { authMiddleware, roleMiddleware, lockMiddleware } from '../middleware/auth';
+import { Order } from '../models/Order.js';
+import { Product } from '../models/Product.js';
+import { User } from '../models/User.js';
+import { Settings } from '../models/Settings.js';
+import { Review } from '../models/Review.js';
+import { Notification } from '../models/Notification.js';
+import { authMiddleware, roleMiddleware, lockMiddleware } from '../middleware/auth.js';
 import mongoose from 'mongoose';
 
 const router = express.Router();
