@@ -1,19 +1,31 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { MessageCircle, MapPin, Star, ShoppingBag, Phone, ArrowRight, ChevronRight, ShieldCheck, Loader2, UserPlus, UserMinus } from 'lucide-react';
-import { ProductCard } from '../components/ProductCard';
-import { motion } from 'motion/react';
-import { productService, authService } from '../services/api';
-import { Product, User } from '../types';
-import { formatWhatsAppNumber, formatDisplayPhone, cn } from '../lib/utils';
-import { useAuth } from '../context/AuthContext';
+import React, { useEffect, useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import {
+  MessageCircle,
+  MapPin,
+  Star,
+  ShoppingBag,
+  Phone,
+  ArrowRight,
+  ChevronRight,
+  ShieldCheck,
+  Loader2,
+  UserPlus,
+  UserMinus,
+} from "lucide-react";
+import { ProductCard } from "../components/ProductCard";
+import { motion } from "motion/react";
+import { productService, authService } from "../services/api";
+import { Product, User } from "../types";
+import { formatWhatsAppNumber, formatDisplayPhone, cn } from "../lib/utils";
+import { useAuth } from "../context/AuthContext";
 
 export const SellerPage = () => {
   const { sellerId } = useParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [seller, setSeller] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [followLoading, setFollowLoading] = useState(false);
   const { user, setFollowingSellers, followingSellers } = useAuth();
   const [isFollowing, setIsFollowing] = useState(false);
@@ -30,15 +42,20 @@ export const SellerPage = () => {
       try {
         setLoading(true);
         const response = await productService.getSellerProducts(sellerId);
-        const { products: fetchedProducts = [], seller: sellerData, sellerRating, totalReviews } = response.data;
+        const {
+          products: fetchedProducts = [],
+          seller: sellerData,
+          sellerRating,
+          totalReviews,
+        } = response.data;
         setProducts(fetchedProducts);
         setSeller({
           ...sellerData,
           rating: sellerRating,
-          numReviews: totalReviews
+          numReviews: totalReviews,
         });
       } catch (err) {
-        setError('فشل في تحميل بيانات البائع');
+        setError("فشل في تحميل بيانات البائع");
       } finally {
         setLoading(false);
       }
@@ -48,18 +65,18 @@ export const SellerPage = () => {
 
   const handleFollow = async () => {
     if (!user) {
-      alert('يرجى تسجيل الدخول لمتابعة المتجر');
+      alert("يرجى تسجيل الدخول لمتابعة المتجر");
       return;
     }
     if (!sellerId || followLoading) return;
-    
+
     setFollowLoading(true);
     try {
       const res = await authService.followSeller(sellerId);
       setFollowingSellers(res.data);
       setIsFollowing(res.data.includes(sellerId));
     } catch (error) {
-      console.error('Error following seller:', error);
+      console.error("Error following seller:", error);
     } finally {
       setFollowLoading(false);
     }
@@ -76,8 +93,12 @@ export const SellerPage = () => {
   if (!seller && !loading) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
-        <h2 className="text-2xl font-black text-slate-900">البائع غير موجود أو ليس لديه منتجات</h2>
-        <Link to="/products" className="text-primary font-bold hover:underline">العودة للمتجر</Link>
+        <h2 className="text-2xl font-black text-slate-900">
+          البائع غير موجود أو ليس لديه منتجات
+        </h2>
+        <Link to="/products" className="text-primary font-bold hover:underline">
+          العودة للمتجر
+        </Link>
       </div>
     );
   }
@@ -87,9 +108,13 @@ export const SellerPage = () => {
       {/* Breadcrumbs */}
       <div className="container mx-auto px-4 py-6">
         <div className="flex items-center gap-2 text-xs text-secondary font-medium">
-          <Link to="/" className="hover:text-primary">الرئيسية</Link>
+          <Link to="/" className="hover:text-primary">
+            الرئيسية
+          </Link>
           <ChevronRight className="w-3 h-3 rotate-180" />
-          <Link to="/products" className="hover:text-primary">المنتجات</Link>
+          <Link to="/products" className="hover:text-primary">
+            المنتجات
+          </Link>
           <ChevronRight className="w-3 h-3 rotate-180" />
           <span className="text-slate-900">{seller?.name}</span>
         </div>
@@ -103,75 +128,90 @@ export const SellerPage = () => {
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[100px] -mr-32 -mt-32 rounded-full"></div>
             <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/10 blur-[100px] -ml-32 -mb-32 rounded-full"></div>
           </div>
-          
+
           <div className="px-6 lg:px-12 pb-8 -mt-16 lg:-mt-24 relative z-10">
             <div className="flex flex-col lg:flex-row items-center lg:items-end gap-6 lg:gap-10">
               {/* Avatar */}
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="w-32 h-32 lg:w-48 lg:h-48 bg-white rounded-[2.5rem] lg:rounded-[3.5rem] flex items-center justify-center text-5xl lg:text-7xl font-black border-4 lg:border-8 border-white shadow-2xl text-slate-900 shrink-0"
               >
-                {seller?.name?.charAt(0) || 'S'}
+                {seller?.name?.charAt(0) || "S"}
               </motion.div>
-              
+
               {/* Info */}
-              <div className="flex-1 text-center lg:text-right pb-2">
-                <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-6 mb-4 justify-center lg:justify-start overflow-hidden">
-                  <h1 className="text-3xl lg:text-5xl font-black text-slate-900 font-kufi truncate max-w-full">{seller?.name}</h1>
-                    <div className="flex items-center justify-center gap-2 shrink-0">
-                      <div className="flex items-center gap-1 bg-amber-50 text-amber-600 px-3 py-1.5 rounded-full text-xs font-bold border border-amber-100 font-geometric">
-                        <Star className="w-3.5 h-3.5 fill-current" />
-                        <span>{seller?.rating || 0}</span>
-                        <span className="text-[10px] text-amber-400 font-medium mr-1">({seller?.numReviews || 0})</span>
-                      </div>
-                      <div className="flex items-center gap-1 bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-full text-xs font-bold border border-emerald-100 font-kufi">
-                        <ShieldCheck className="w-3.5 h-3.5" />
-                        <span>بائع موثوق</span>
-                      </div>
+              <div className="flex-1 text-center lg:text-right pb-2 lg:pb-4 lg:pt-14 min-w-0">
+                <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-6 mb-4 justify-center lg:justify-start">
+                  <h1 className="text-3xl lg:text-5xl font-black text-slate-900 leading-tight truncate">
+                    {seller?.name}
+                  </h1>
+                  <div className="flex items-center justify-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 bg-amber-50 text-amber-600 px-4 py-2 rounded-full text-sm font-black border border-amber-100 shadow-sm">
+                      <Star className="w-4 h-4 fill-current" />
+                      <span>
+                        {seller?.rating && seller.rating > 0
+                          ? seller.rating.toFixed(1)
+                          : "جديد"}
+                      </span>
+                      {seller?.numReviews ? (
+                        <span className="text-[10px] text-amber-400 font-bold mr-1">
+                          ({seller.numReviews})
+                        </span>
+                      ) : null}
                     </div>
+                    <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-600 px-4 py-2 rounded-full text-sm font-black border border-emerald-100 shadow-sm">
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>موثوق</span>
+                    </div>
+                  </div>
                 </div>
-                
-                <p className="text-secondary text-sm lg:text-base max-w-2xl leading-relaxed mb-0 lg:mb-2 font-kufi">
-                  نحن نقدم أفضل المنتجات العالمية بجودة مضمونة وأسعار تنافسية. نسعى دائماً لتوفير تجربة تسوق فريدة لعملائنا.
+
+                <p className="text-secondary text-sm lg:text-lg max-w-2xl leading-relaxed mb-6 lg:mb-2 font-medium">
+                  نحن نقدم أفضل المنتجات العالمية بجودة مضمونة وأسعار تنافسية.
+                  نسعى دائماً لتوفير تجربة تسوق فريدة لعملائنا.
                 </p>
               </div>
 
               {/* Actions */}
-              <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto lg:pb-4">
+              <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto lg:pb-6">
                 {seller?.isLocked ? (
-                  <div className="bg-rose-50 text-rose-600 px-10 py-4 rounded-2xl text-sm font-black text-center border border-rose-100 flex items-center justify-center gap-2">
-                    <ShieldCheck className="w-5 h-5" />
-                    هذا المتجر متوقف مؤقتاً
+                  <div className="bg-rose-50 text-rose-600 px-10 py-5 rounded-2xl text-sm font-black text-center border border-rose-100 flex items-center justify-center gap-3 shadow-lg shadow-rose-500/10">
+                    <ShieldCheck className="w-6 h-6" />
+                    هذا المتجر متوقف حالياً
                   </div>
                 ) : (
                   <>
-                    <a 
-                      href={`https://wa.me/${formatWhatsAppNumber(seller?.phone || '')}`}
+                    <a
+                      href={`https://wa.me/${formatWhatsAppNumber(seller?.phone || "")}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="bg-primary text-white h-14 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 font-kufi text-sm sm:text-base w-full sm:px-8"
+                      className="bg-primary text-white h-15 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-blue-600 transition-all shadow-xl shadow-primary/20 text-sm sm:text-base w-full sm:px-10 active:scale-95"
                     >
-                      <MessageCircle className="w-5 h-5" />
-                      <span className="whitespace-nowrap">تواصل عبر واتساب</span>
+                      <MessageCircle className="w-6 h-6" />
+                      <span className="whitespace-nowrap">تواصل واتساب</span>
                     </a>
-                    <button 
+                    <button
                       onClick={handleFollow}
                       disabled={followLoading}
                       className={cn(
-                        "h-14 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all border font-kufi text-sm sm:text-base w-full sm:px-8",
-                        isFollowing 
-                          ? "bg-slate-50 text-slate-900 border-slate-200 hover:bg-slate-100" 
-                          : "bg-slate-900 text-white border-slate-900 hover:bg-slate-800",
-                        followLoading && "opacity-70 cursor-not-allowed"
+                        "h-15 rounded-2xl font-black flex items-center justify-center gap-3 transition-all border text-sm sm:text-base w-full sm:px-10 active:scale-95",
+                        isFollowing
+                          ? "bg-slate-50 text-slate-900 border-slate-200 hover:bg-slate-100"
+                          : "bg-slate-900 text-white border-slate-900 hover:bg-slate-800 shadow-xl shadow-slate-900/10",
+                        followLoading && "opacity-70 cursor-not-allowed",
                       )}
                     >
                       {followLoading ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                      ) : isFollowing ? (
+                        <UserMinus className="w-6 h-6" />
                       ) : (
-                        isFollowing ? <UserMinus className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />
+                        <UserPlus className="w-6 h-6" />
                       )}
-                      <span className="whitespace-nowrap">{isFollowing ? 'إلغاء المتابعة' : 'متابعة المتجر'}</span>
+                      <span className="whitespace-nowrap">
+                        {isFollowing ? "إلغاء المتابعة" : "متابعة المتجر"}
+                      </span>
                     </button>
                   </>
                 )}
@@ -185,26 +225,37 @@ export const SellerPage = () => {
           <aside className="w-full lg:w-80 shrink-0 space-y-6 lg:sticky lg:top-8 lg:h-fit">
             {/* Stats Card */}
             <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50">
-              <h3 className="text-lg font-black text-slate-900 mb-6">إحصائيات المتجر</h3>
+              <h3 className="text-lg font-black text-slate-900 mb-6">
+                إحصائيات المتجر
+              </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
                 <div className="flex items-center justify-between p-4 bg-slate-50 rounded-3xl">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-primary shadow-sm">
                       <ShoppingBag className="w-5 h-5" />
                     </div>
-                    <span className="text-xs font-bold text-secondary font-kufi">المنتجات</span>
+                    <span className="text-xs font-bold text-secondary font-kufi">
+                      المنتجات
+                    </span>
                   </div>
-                  <span className="text-sm font-black text-slate-900 font-geometric">{products.length}</span>
+                  <span className="text-sm font-black text-slate-900 font-geometric">
+                    {products.length}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between p-4 bg-slate-50 rounded-3xl">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-emerald-500 shadow-sm">
                       <Phone className="w-5 h-5" />
                     </div>
-                    <span className="text-xs font-bold text-secondary font-kufi">رقم الهاتف</span>
+                    <span className="text-xs font-bold text-secondary font-kufi">
+                      رقم الهاتف
+                    </span>
                   </div>
-                  <span className="text-sm font-black text-slate-900 font-geometric py-1 leading-normal whitespace-nowrap" dir="ltr">
-                    {formatDisplayPhone(seller?.phone || '')}
+                  <span
+                    className="text-sm font-black text-slate-900 font-geometric py-1 leading-normal whitespace-nowrap"
+                    dir="ltr"
+                  >
+                    {formatDisplayPhone(seller?.phone || "")}
                   </span>
                 </div>
               </div>
@@ -225,8 +276,12 @@ export const SellerPage = () => {
             <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-6 lg:p-8 mb-8">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                  <h2 className="text-2xl lg:text-3xl font-black text-slate-900 mb-1">منتجات المتجر</h2>
-                  <p className="text-secondary text-xs lg:text-sm font-medium">استكشف جميع المنتجات المعروضة من قبل {seller?.name}</p>
+                  <h2 className="text-2xl lg:text-3xl font-black text-slate-900 mb-1">
+                    منتجات المتجر
+                  </h2>
+                  <p className="text-secondary text-xs lg:text-sm font-medium">
+                    استكشف جميع المنتجات المعروضة من قبل {seller?.name}
+                  </p>
                 </div>
               </div>
             </div>
@@ -242,9 +297,16 @@ export const SellerPage = () => {
                 <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-200">
                   <ShoppingBag className="w-10 h-10" />
                 </div>
-                <h3 className="text-xl font-black text-slate-900 mb-2">لا توجد منتجات حالياً</h3>
-                <p className="text-secondary text-sm max-w-xs mx-auto">هذا البائع ليس لديه منتجات معروضة في الوقت الحالي.</p>
-                <Link to="/products" className="inline-flex items-center gap-2 text-primary font-black mt-8 hover:gap-3 transition-all text-sm">
+                <h3 className="text-xl font-black text-slate-900 mb-2">
+                  لا توجد منتجات حالياً
+                </h3>
+                <p className="text-secondary text-sm max-w-xs mx-auto">
+                  هذا البائع ليس لديه منتجات معروضة في الوقت الحالي.
+                </p>
+                <Link
+                  to="/products"
+                  className="inline-flex items-center gap-2 text-primary font-black mt-8 hover:gap-3 transition-all text-sm"
+                >
                   استكشف منتجات أخرى
                   <ArrowRight className="w-4 h-4 rotate-180" />
                 </Link>
