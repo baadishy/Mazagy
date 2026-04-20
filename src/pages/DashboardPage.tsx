@@ -21,9 +21,18 @@ import {
   Eye,
   Truck,
   ShieldCheck,
+  MapPin,
+  MessageCircle,
   Tag as TagIcon,
+  PieChart as PieChartIcon,
   ArrowRight,
-  BarChart3
+  BarChart3,
+  Lock,
+  Unlock,
+  CheckCircle2,
+  AlertCircle,
+  Smartphone,
+  Clock
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
@@ -42,8 +51,8 @@ import {
   PieChart,
   Pie
 } from 'recharts';
-import { cn } from '../lib/utils';
-import { orderService, productService, authService } from '../services/api';
+import { cn, formatWhatsAppNumber, formatDisplayPhone } from '../lib/utils';
+import { orderService, productService, authService, settingsService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { NotificationBell } from '../components/NotificationBell';
 import { Logo } from '../components/Logo';
@@ -58,19 +67,38 @@ export const useDashboard = () => React.useContext(DashboardContext);
 export const DashboardLayout = ({ children, title }: { children: React.ReactNode, title: string }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading, acknowledgeRules } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const isAdmin = user?.role === 'admin';
+  const [ackLoading, setAckLoading] = useState(false);
+  const [stats, setStats] = useState<any>(null);
+  const isAdmin = user?.role === 'admin' || user?.role === 'moderator';
   const isAdminPath = location.pathname.startsWith('/admin');
 
   useEffect(() => {
-    if (!loading && isAdminPath && user?.role !== 'admin') {
+    const fetchStats = async () => {
+      if (user?.role === 'seller' && !user?.hasSeenRules) {
+        try {
+          const res = await orderService.getPublicStats();
+          setStats(res.data);
+        } catch (error) {
+          console.error('Failed to fetch stats', error);
+        }
+      }
+    };
+    fetchStats();
+  }, [user]);
+
+  const commissionPercent = stats ? (stats.commissionRate * 100).toFixed(0) : '...';
+  const trialDays = stats ? stats.trialDurationDays : '...';
+
+  useEffect(() => {
+    if (!loading && isAdminPath && user?.role !== 'admin' && user?.role !== 'moderator') {
       toast.error('غير مصرح لك بالدخول لهذه الصفحة');
-      navigate('/admin/login');
+      navigate('/login');
     }
   }, [user, loading, isAdminPath, navigate]);
 
-  if (loading) {
+  if (loading || (user?.role === 'seller' && !user?.hasSeenRules && !stats)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="w-10 h-10 animate-spin text-primary" />
@@ -85,15 +113,166 @@ export const DashboardLayout = ({ children, title }: { children: React.ReactNode
     { name: 'الأرباح', icon: DollarSign, path: isAdmin ? '/admin/earnings' : '/seller/earnings' },
     ...(isAdmin ? [
       { name: 'البائعين', icon: ShieldCheck, path: '/admin/sellers' },
-      { name: 'المستخدمين', icon: Users, path: '/admin/users' }
+      { name: 'المستخدمين', icon: Users, path: '/admin/users' },
+      { name: 'إعدادات المنصة', icon: Settings, path: '/admin/settings' }
     ] : []),
-    { name: 'الإعدادات', icon: Settings, path: '/profile' },
+    { name: 'حسابي', icon: Users, path: '/profile' },
   ];
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row" dir="rtl">
+      {/* Locked Overlay */}
+      {user?.role === 'seller' && user?.isLocked && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            className="bg-white rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 max-w-lg w-full shadow-2xl relative overflow-hidden my-8"
+          >
+            <div className="absolute top-0 left-0 w-full h-1.5 sm:h-2 bg-rose-500" />
+            
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-rose-100 rounded-2xl sm:rounded-3xl flex items-center justify-center text-rose-600 mx-auto mb-6 sm:mb-8 shadow-inner">
+              <ShieldCheck className="w-8 h-8 sm:w-10 sm:h-10" />
+            </div>
+
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 mb-3 sm:mb-4">حسابك متوقف مؤقتاً</h2>
+            
+            <p className="text-secondary text-sm sm:text-base leading-relaxed mb-6 sm:mb-10 text-center">
+              لقد انتهت فترة السماح (شهر بعد الفترة التجريبية). يرجى إتمام عملية الدفع لتتمكن من الوصول إلى لوحة التحكم واستقبال الطلبات مرة أخرى.
+            </p>
+            
+            <div className="bg-slate-50 rounded-[1.5rem] sm:rounded-[2.5rem] p-4 sm:p-8 mb-6 sm:mb-10 text-right">
+              <span className="text-[10px] font-black text-primary block mb-3 uppercase tracking-widest">طريقة الدفع المقبولة</span>
+              
+              <div className="flex items-center gap-3 sm:gap-4 mb-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-xl sm:rounded-2xl flex items-center justify-center text-emerald-500 shadow-sm shrink-0">
+                  <DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-base sm:text-lg font-black text-slate-900 truncate">إنستا باي (InstaPay)</div>
+                  <div className="text-xs sm:text-sm font-bold text-slate-500 select-all" dir="ltr">01559993943</div>
+                </div>
+              </div>
+
+              <p className="text-[11px] sm:text-xs text-secondary leading-relaxed bg-white/50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+                بمجرد إتمام التحويل، يرجى التواصل مع الإدارة. سيقوم المسؤول بمراجعة الطلب وتفعيل حسابك يدوياً فور التأكد.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:gap-4">
+              <button 
+                onClick={logout}
+                className="w-full py-3.5 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-xl shadow-slate-200 flex items-center justify-center gap-2"
+              >
+                <LogOut className="w-4 h-4 sm:w-5 sm:h-5" /> تسجيل الخروج
+              </button>
+              <button 
+                onClick={() => window.location.reload()}
+                className="w-full py-2 rounded-xl font-bold text-xs sm:text-sm text-slate-400 hover:text-primary transition-all underline underline-offset-4 sm:underline-offset-8"
+              >
+                تحديث الصفحة بعد الدفع
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Rules Modal for New Sellers */}
+      {user?.role === 'seller' && !user?.hasSeenRules && (
+        <div className="fixed inset-0 z-[110] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 text-center">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-[2.5rem] max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative"
+          >
+            <div className="p-8 md:p-12 space-y-8">
+              <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center text-primary mx-auto mb-6">
+                <ShieldCheck className="w-10 h-10" />
+              </div>
+              
+              <div className="space-y-4">
+                <h2 className="text-2xl md:text-3xl font-black text-slate-900 font-kufi">أهلاً بك في أسرة بائعينا!</h2>
+                <p className="text-secondary text-sm font-bold leading-relaxed">
+                  نحن سعداء بانضمامك إلينا. للبدء بشكل صحيح، يرجى قراءة وفهم قوانين المنصة الأساسية لضمان أفضل تجربة لك ولعملائك.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-right">
+                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex items-start gap-4">
+                  <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-2xl flex-shrink-0 flex items-center justify-center">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-slate-900 text-sm mb-1">{trialDays} يوم تجربة مجانية</h4>
+                    <p className="text-[10px] text-secondary font-bold">ابدأ متجرك بدون أي عمولات لمدة {trialDays} يوماً.</p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex items-start gap-4">
+                  <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-2xl flex-shrink-0 flex items-center justify-center">
+                    <DollarSign className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-slate-900 text-sm mb-1">عمولة بسيطة {commissionPercent}%</h4>
+                    <p className="text-[10px] text-secondary font-bold">بعد انتهاء التجربة، يتم خصم {commissionPercent}% فقط من كل طلب.</p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex items-start gap-4">
+                  <div className="w-10 h-10 bg-rose-100 text-rose-600 rounded-2xl flex-shrink-0 flex items-center justify-center">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-slate-900 text-sm mb-1">فترة سماح إضافية</h4>
+                    <p className="text-[10px] text-secondary font-bold">شهر كامل بعد التجربة قبل قفل الحساب في حال عدم السداد.</p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex items-start gap-4">
+                  <div className="w-10 h-10 bg-primary/10 text-primary rounded-2xl flex-shrink-0 flex items-center justify-center">
+                    <Smartphone className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-slate-900 text-sm mb-1">دفع عبر InstaPay</h4>
+                    <p className="text-[10px] text-secondary font-bold">تحويل العمولات يتم بسهولة عبر تطبيق إنستا باي.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 space-y-4">
+                <button 
+                  disabled={ackLoading}
+                  onClick={async () => {
+                    setAckLoading(true);
+                    try {
+                      await acknowledgeRules();
+                      toast.success('تمت الموافقة على القوانين، نتمنى لك تجارة رابحة!');
+                    } catch (error) {
+                      toast.error('حدث خطأ أثناء الموافقة');
+                    } finally {
+                      setAckLoading(false);
+                    }
+                  }}
+                  className="w-full h-16 bg-primary text-white rounded-2xl font-black text-lg flex items-center justify-center gap-3 hover:bg-primary/90 transition-all shadow-xl shadow-primary/20 disabled:opacity-50"
+                >
+                  {ackLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
+                  أوافق على القوانين والبدء الآن
+                </button>
+                <Link 
+                  to="/seller/terms" 
+                  target="_blank"
+                  className="text-sm text-secondary font-bold underline underline-offset-4 hover:text-primary transition-all block"
+                >
+                  قراءة الدليل الكامل والقوانين
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* Sidebar - Desktop */}
-      <aside className="hidden md:flex w-64 bg-white border-l border-slate-200 p-6 flex-col gap-8 sticky top-0 h-screen overflow-y-auto">
+      <aside className="hidden md:flex md:w-56 lg:w-64 bg-white border-l border-slate-200 p-4 lg:p-6 flex-col gap-8 sticky top-0 h-screen overflow-y-auto">
         <Link to="/" className="flex items-center px-2">
           <Logo className="h-10" />
         </Link>
@@ -128,36 +307,57 @@ export const DashboardLayout = ({ children, title }: { children: React.ReactNode
       </aside>
 
       {/* Bottom Navigation - Mobile */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-2 flex items-center justify-around z-50 shadow-2xl">
-        {menuItems.slice(0, 4).map((item) => (
-          <Link
-            key={item.name}
-            to={item.path}
-            className={cn(
-              "flex flex-col items-center gap-1 p-2 rounded-xl transition-all",
-              location.pathname === item.path ? "text-primary" : "text-secondary"
-            )}
-          >
-            <item.icon className="w-5 h-5" />
-            <span className="text-[10px] font-bold">{item.name}</span>
-          </Link>
-        ))}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-100 z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] overflow-x-auto no-scrollbar">
+        <div className="flex items-center min-w-full px-2 py-1">
+          {menuItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            return (
+              <Link
+                key={item.name}
+                to={item.path}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-1 transition-all flex-1 min-w-[85px] py-2 relative shrink-0",
+                  isActive ? "text-primary" : "text-slate-400"
+                )}
+              >
+                <div className={cn(
+                  "p-2 rounded-xl transition-all duration-300",
+                  isActive ? "bg-primary/10 scale-110" : "bg-transparent"
+                )}>
+                  <item.icon className={cn("w-6 h-6", isActive ? "stroke-[2.5px]" : "stroke-[2px]")} />
+                </div>
+                <span className={cn(
+                  "text-[11px] font-bold tracking-tight whitespace-nowrap px-1",
+                  isActive ? "text-primary" : "text-slate-500"
+                )}>
+                  {item.name}
+                </span>
+                {isActive && (
+                  <motion.div 
+                    layoutId="activeTab"
+                    className="absolute top-0 w-10 h-1 bg-primary rounded-full shadow-[0_0_10px_rgba(59,130,246,0.3)]"
+                  />
+                )}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 overflow-hidden min-w-0 pb-24 md:pb-8">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-hidden min-w-0 pb-24 md:pb-8">
         {/* Top Bar */}
-        <header className="flex items-center justify-between mb-8">
+        <header className="flex items-center justify-between mb-6 md:mb-8">
           <h1 className="text-2xl font-black text-slate-900">{title}</h1>
           <div className="flex items-center gap-4">
-            <div className="relative hidden sm:block">
+            <div className="relative hidden lg:block">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
               <input 
                 type="text" 
                 placeholder="بحث..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-white border border-slate-200 rounded-xl pr-10 pl-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 w-64"
+                className="bg-white border border-slate-200 rounded-xl pr-10 pl-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 w-48 xl:w-64"
               />
             </div>
             <NotificationBell />
@@ -175,6 +375,123 @@ export const DashboardLayout = ({ children, title }: { children: React.ReactNode
   );
 };
 
+
+const DashboardSettings = () => {
+  const [settings, setSettings] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await settingsService.getSettings();
+        setSettings(res.data);
+      } catch (error) {
+        console.error('Error fetching settings:', error);
+        toast.error('فشل تحميل الإعدادات');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await settingsService.updateSettings(settings);
+      toast.success('تم تحديث الإعدادات بنجاح');
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      toast.error('فشل تحديث الإعدادات');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+
+  return (
+    <div className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+      <h3 className="text-lg font-black text-slate-900 mb-8">إعدادات المنصة</h3>
+      
+      <form onSubmit={handleUpdate} className="max-w-2xl flex flex-col gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-bold text-secondary">نسبة العمولة العامة (%)</label>
+            <input 
+              type="number" 
+              step="any"
+              min="0"
+              max="25"
+              placeholder="0"
+              value={settings.globalCommissionRate === 0 ? "" : Number((settings.globalCommissionRate * 100).toFixed(5)).toString()}
+              onChange={(e) => {
+                const rawValue = e.target.value;
+                if (rawValue === "") {
+                  setSettings({ ...settings, globalCommissionRate: 0 });
+                  return;
+                }
+                
+                const val = parseFloat(rawValue);
+                if (isNaN(val)) return;
+
+                if (val > 25) {
+                  toast.error('الحد الأقصى للعمولة هو 25%');
+                  return;
+                }
+                
+                setSettings({ ...settings, globalCommissionRate: val / 100 });
+              }}
+              className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            <p className="text-[10px] text-slate-400">تُطبق على جميع الطلبات الجديدة وتُحسب بمجرد قبول البائع للطلب (بحد أقصى 25%)</p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-bold text-secondary">مدة الفترة التجريبية (بالأيام)</label>
+            <input 
+              type="number" 
+              value={settings.trialDurationDays || 30}
+              onChange={(e) => setSettings({ ...settings, trialDurationDays: parseInt(e.target.value) || 30 })}
+              className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between p-6 bg-slate-50 rounded-3xl">
+          <div>
+            <h4 className="text-sm font-bold text-slate-900 mb-1">تفعيل نظام الفترة التجريبية</h4>
+            <p className="text-[10px] text-secondary">عند تفعيل هذا الخيار، سيحصل البائعون الجدد على فترة تجريبية بدون عمولة</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSettings({ ...settings, isTrialEnabled: !settings.isTrialEnabled })}
+            className={cn(
+              "w-12 h-6 rounded-full transition-all relative",
+              settings.isTrialEnabled ? "bg-primary" : "bg-slate-200"
+            )}
+          >
+            <div className={cn(
+              "absolute top-1 w-4 h-4 rounded-full bg-white transition-all",
+              settings.isTrialEnabled ? "left-1" : "left-7"
+            )} />
+          </button>
+        </div>
+
+        <button 
+          type="submit"
+          disabled={saving}
+          className="w-full md:w-fit px-12 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-lg shadow-slate-200 hover:bg-primary transition-all disabled:opacity-50"
+        >
+          {saving ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
 export const DashboardOrders = ({ sellerId }: { sellerId?: string }) => {
   const { user } = useAuth();
   const location = useLocation();
@@ -183,6 +500,7 @@ export const DashboardOrders = ({ sellerId }: { sellerId?: string }) => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [confirmingAction, setConfirmingAction] = useState<{ id: string, status: string, name: string } | null>(null);
+  const [viewingLogs, setViewingLogs] = useState<any[] | null>(null);
   const { searchQuery, setSearchQuery } = useDashboard();
 
   const fetchOrders = async () => {
@@ -254,8 +572,51 @@ export const DashboardOrders = ({ sellerId }: { sellerId?: string }) => {
   });
 
   return (
-    <div className="bg-white p-4 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden relative">
+    <div className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden relative">
       <AnimatePresence>
+        {viewingLogs && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-black text-slate-900">سجل حالة الطلب</h3>
+                <button onClick={() => setViewingLogs(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                  <Plus className="w-5 h-5 rotate-45" />
+                </button>
+              </div>
+              <div className="space-y-6 relative before:absolute before:right-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
+                {viewingLogs.map((log, idx) => (
+                  <div key={idx} className="relative pr-8">
+                    <div className="absolute right-0 top-1.5 w-6 h-6 rounded-full bg-white border-4 border-slate-100 flex items-center justify-center z-10">
+                      <div className="w-2 h-2 rounded-full bg-primary" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-black text-slate-900">
+                        {log.status === 'pending' ? 'قيد الانتظار' : 
+                         log.status === 'confirmed' ? 'تم التأكيد' : 
+                         log.status === 'delivered' ? 'تم التوصيل' : 
+                         log.status === 'rejected' ? 'مرفوض' : 'ملغي'}
+                      </span>
+                      <span className="text-[10px] text-secondary font-bold">
+                        {new Date(log.timestamp).toLocaleString('ar-EG')}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+
         {confirmingAction && (
           <motion.div 
             initial={{ opacity: 0 }}
@@ -283,7 +644,7 @@ export const DashboardOrders = ({ sellerId }: { sellerId?: string }) => {
                   confirmingAction.status === 'confirmed' ? 'مؤكد' : 
                   confirmingAction.status === 'rejected' ? 'ملغى' : 'مكتمل'
                 }.
-                {confirmingAction.status !== 'confirmed' && ' لا يمكن التراجع عن هذا الإجراء.'}
+                {confirmingAction.status === 'confirmed' ? ' لا يمكنك التراجع عن هذا الإجراء أو إلغاء الطلب بعد التأكيد.' : ' لا يمكن التراجع عن هذا الإجراء.'}
               </p>
               <div className="flex flex-col gap-3">
                 <button 
@@ -364,6 +725,7 @@ export const DashboardOrders = ({ sellerId }: { sellerId?: string }) => {
               {user?.role === 'admin' && <th className="pb-4 px-4 font-bold">البائع</th>}
               <th className="pb-4 px-4 font-bold">المنتج</th>
               <th className="pb-4 px-4 font-bold">السعر</th>
+              <th className="pb-4 px-4 font-bold">العائد والعمولة</th>
               <th className="pb-4 px-4 font-bold">الحالة</th>
               <th className="pb-4 px-4 font-bold">التاريخ</th>
               <th className="pb-4 px-4 font-bold">الإجراءات</th>
@@ -378,7 +740,29 @@ export const DashboardOrders = ({ sellerId }: { sellerId?: string }) => {
               filteredOrders.map((order) => (
                 <tr key={order._id} className="group hover:bg-slate-50 transition-colors">
                   <td className="py-4 px-4 font-bold text-slate-500">{order._id.slice(-6).toUpperCase()}</td>
-                  <td className="py-4 px-4 font-bold text-slate-900">{order.buyerName}</td>
+                  <td className="py-4 px-4 overflow-hidden max-w-[200px]">
+                    <div className="flex flex-col gap-1">
+                      <span className="font-bold text-slate-900 block truncate">{order.buyerName}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500 font-bold" dir="ltr">{formatDisplayPhone(order.buyerPhone)}</span>
+                        <a 
+                          href={`https://wa.me/${formatWhatsAppNumber(order.buyerPhone)}`} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="text-emerald-500 hover:text-emerald-600 transition-colors"
+                          title="تواصل عبر واتساب"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 fill-emerald-50" />
+                        </a>
+                      </div>
+                      {(order.status === 'confirmed' || order.status === 'delivered') && (
+                        <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">
+                          <MapPin className="w-3 h-3 flex-shrink-0" />
+                          <span className="truncate" title={order.buyerAddress}>{order.buyerAddress}</span>
+                        </div>
+                      )}
+                    </div>
+                  </td>
                   {user?.role === 'admin' && (
                     <td className="py-4 px-4">
                       <Link to={`/seller/${order.sellerId?._id}`} className="text-primary hover:underline font-bold">
@@ -386,8 +770,34 @@ export const DashboardOrders = ({ sellerId }: { sellerId?: string }) => {
                       </Link>
                     </td>
                   )}
-                  <td className="py-4 px-4 font-bold text-slate-900">{order.productId?.name}</td>
+                  <td className="py-4 px-4 font-bold text-slate-900">
+                    <div className="flex flex-col">
+                      <span>{order.productId?.name}</span>
+                      {(order.selectedColor || order.selectedSize) && (
+                        <div className="flex gap-2 mt-1">
+                          {order.selectedColor && (
+                            <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md border border-slate-200 uppercase font-black">
+                              Color: {order.selectedColor}
+                            </span>
+                          )}
+                          {order.selectedSize && (
+                            <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-md border border-slate-200 uppercase font-black">
+                              Size: {order.selectedSize}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </td>
                   <td className="py-4 px-4 font-black text-slate-900">{order.price} ج.م</td>
+                  <td className="py-4 px-4">
+                    {order.status === 'delivered' && (
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-[10px] font-bold text-rose-500">العمولة: {order.commissionAmount?.toFixed(2)} ج.م</span>
+                        <span className="text-[10px] font-bold text-emerald-600">صافي الربح: {order.sellerEarning?.toFixed(2)} ج.م</span>
+                      </div>
+                    )}
+                  </td>
                   <td className="py-4 px-4">
                     <span className={cn(
                       "inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold",
@@ -397,50 +807,59 @@ export const DashboardOrders = ({ sellerId }: { sellerId?: string }) => {
                       "bg-blue-50 text-blue-600"
                     )}>
                       {order.status === 'delivered' ? 'مكتمل' : 
-                       order.status === 'pending' ? 'معلق' : 
-                       order.status === 'rejected' ? 'ملغى' : 'مؤكد'}
+                       order.status === 'pending' ? 'بانتظار الموافقة' : 
+                       order.status === 'rejected' ? 'ملغى' : 'جاري التجهيز'}
                     </span>
+                    {user?.role === 'admin' && (
+                      <button 
+                        onClick={() => setViewingLogs(order.statusLogs || [])}
+                        className="p-1 hover:bg-slate-100 rounded-md transition-colors mr-1"
+                        title="عرض السجل"
+                      >
+                        <BarChart3 className="w-3 h-3 text-slate-400" />
+                      </button>
+                    )}
                   </td>
                   <td className="py-4 px-4 text-secondary text-xs">{new Date(order.createdAt).toLocaleDateString('ar-EG')}</td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-2">
-                      {order.status === 'pending' && (
-                        <>
-                          <button 
-                            onClick={() => setConfirmingAction({ id: order._id, status: 'confirmed', name: order.productId?.name })}
-                            className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[10px] font-black hover:bg-blue-100 transition-all"
-                          >
-                            تأكيد
-                          </button>
-                          <button 
-                            onClick={() => setConfirmingAction({ id: order._id, status: 'rejected', name: order.productId?.name })}
-                            className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black hover:bg-rose-100 transition-all"
-                          >
-                            إلغاء
-                          </button>
-                        </>
-                      )}
-                      {order.status === 'confirmed' && (
-                        <>
-                          <button 
-                            onClick={() => setConfirmingAction({ id: order._id, status: 'delivered', name: order.productId?.name })}
-                            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black hover:bg-emerald-100 transition-all"
-                          >
-                            توصيل
-                          </button>
-                          <button 
-                            onClick={() => setConfirmingAction({ id: order._id, status: 'rejected', name: order.productId?.name })}
-                            className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black hover:bg-rose-100 transition-all"
-                          >
-                            إلغاء
-                          </button>
-                        </>
-                      )}
-                      {(order.status === 'delivered' || order.status === 'rejected') && (
-                        <span className="text-[10px] font-bold text-slate-400 italic">لا توجد إجراءات</span>
-                      )}
-                    </div>
-                  </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2">
+                          {user?.role !== 'admin' ? (
+                            <>
+                              {order.status === 'pending' && (
+                                <>
+                                  <button 
+                                    onClick={() => setConfirmingAction({ id: order._id, status: 'confirmed', name: order.productId?.name })}
+                                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black hover:bg-blue-700 transition-all shadow-md"
+                                  >
+                                    قبول الطلب
+                                  </button>
+                                  <button 
+                                    onClick={() => setConfirmingAction({ id: order._id, status: 'rejected', name: order.productId?.name })}
+                                    className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black hover:bg-rose-100 transition-all"
+                                  >
+                                    رفض
+                                  </button>
+                                </>
+                              )}
+                              {order.status === 'confirmed' && (
+                                <>
+                                  <button 
+                                    onClick={() => setConfirmingAction({ id: order._id, status: 'delivered', name: order.productId?.name })}
+                                    className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[10px] font-black hover:bg-emerald-700 transition-all shadow-md"
+                                  >
+                                    تم التوصيل
+                                  </button>
+                                </>
+                              )}
+                              {(order.status === 'delivered' || order.status === 'rejected') && (
+                                <span className="text-[10px] font-bold text-slate-400 italic">لا توجد إجراءات</span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-400 italic">للمشاهدة فقط</span>
+                          )}
+                        </div>
+                      </td>
                 </tr>
               ))
             )}
@@ -459,6 +878,20 @@ export const DashboardOrders = ({ sellerId }: { sellerId?: string }) => {
                 <div>
                   <span className="text-[10px] font-black text-slate-400 block">#{order._id.slice(-6).toUpperCase()}</span>
                   <h4 className="font-bold text-slate-900 text-sm mt-1">{order.productId?.name}</h4>
+                  {(order.selectedColor || order.selectedSize) && (
+                    <div className="flex gap-2 mt-1">
+                      {order.selectedColor && (
+                        <span className="text-[8px] bg-white text-slate-500 px-1.5 py-0.5 rounded-md border border-slate-200 uppercase font-black">
+                         {order.selectedColor}
+                        </span>
+                      )}
+                      {order.selectedSize && (
+                        <span className="text-[8px] bg-white text-slate-500 px-1.5 py-0.5 rounded-md border border-slate-200 uppercase font-black">
+                          {order.selectedSize}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <span className={cn(
                   "px-2 py-0.5 rounded-full text-[10px] font-bold",
@@ -468,15 +901,34 @@ export const DashboardOrders = ({ sellerId }: { sellerId?: string }) => {
                   "bg-blue-50 text-blue-600"
                 )}>
                   {order.status === 'delivered' ? 'مكتمل' : 
-                   order.status === 'pending' ? 'معلق' : 
-                   order.status === 'rejected' ? 'ملغى' : 'مؤكد'}
+                   order.status === 'pending' ? 'بانتظار الموافقة' : 
+                   order.status === 'rejected' ? 'ملغى' : 'جاري التجهيز'}
                 </span>
               </div>
 
               <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-200/60">
                 <div>
                   <span className="text-[10px] text-secondary block mb-0.5">العميل</span>
-                  <span className="text-xs font-bold text-slate-700">{order.buyerName}</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs font-bold text-slate-700">{order.buyerName}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-500 font-bold" dir="ltr">{formatDisplayPhone(order.buyerPhone)}</span>
+                      <a 
+                        href={`https://wa.me/${formatWhatsAppNumber(order.buyerPhone)}`} 
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-emerald-500"
+                      >
+                        <MessageCircle className="w-3 h-3 fill-emerald-50" />
+                      </a>
+                    </div>
+                    {(order.status === 'confirmed' || order.status === 'delivered') && (
+                      <div className="flex items-center gap-1 text-[9px] text-slate-400 mt-0.5">
+                        <MapPin className="w-2.5 h-2.5" />
+                        <span className="truncate">{order.buyerAddress}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {user?.role === 'admin' && (
                   <div>
@@ -492,43 +944,49 @@ export const DashboardOrders = ({ sellerId }: { sellerId?: string }) => {
                   <span className="text-[10px] text-secondary block mb-0.5">التاريخ</span>
                   <span className="text-xs text-slate-600">{new Date(order.createdAt).toLocaleDateString('ar-EG')}</span>
                 </div>
+                {order.status === 'delivered' && (
+                  <div className="col-span-2 flex justify-between items-center bg-slate-100/50 p-3 rounded-xl mt-1">
+                    <span className="text-[10px] font-bold text-rose-500">العمولة: {order.commissionAmount?.toFixed(2)} ج.م</span>
+                    <span className="text-[10px] font-bold text-emerald-600">صافي الربح: {order.sellerEarning?.toFixed(2)} ج.م</span>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
-                {order.status === 'pending' && (
+                {user?.role !== 'admin' ? (
                   <>
-                    <button 
-                      onClick={() => setConfirmingAction({ id: order._id, status: 'confirmed', name: order.productId?.name })}
-                      className="flex-1 py-2 bg-blue-50 text-blue-600 rounded-xl text-[10px] font-black"
-                    >
-                      تأكيد
-                    </button>
-                    <button 
-                      onClick={() => setConfirmingAction({ id: order._id, status: 'rejected', name: order.productId?.name })}
-                      className="flex-1 py-2 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black"
-                    >
-                      إلغاء
-                    </button>
+                    {order.status === 'pending' && (
+                      <>
+                        <button 
+                          onClick={() => setConfirmingAction({ id: order._id, status: 'confirmed', name: order.productId?.name })}
+                          className="flex-1 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black shadow-md"
+                        >
+                          قبول الطلب
+                        </button>
+                        <button 
+                          onClick={() => setConfirmingAction({ id: order._id, status: 'rejected', name: order.productId?.name })}
+                          className="flex-1 py-2 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black"
+                        >
+                          رفض
+                        </button>
+                      </>
+                    )}
+                    {order.status === 'confirmed' && (
+                      <>
+                        <button 
+                          onClick={() => setConfirmingAction({ id: order._id, status: 'delivered', name: order.productId?.name })}
+                          className="flex-1 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black shadow-md"
+                        >
+                          تم التوصيل
+                        </button>
+                      </>
+                    )}
+                    {(order.status === 'delivered' || order.status === 'rejected') && (
+                      <div className="w-full text-center py-2 text-[10px] font-bold text-slate-400 italic">لا توجد إجراءات متاحة</div>
+                    )}
                   </>
-                )}
-                {order.status === 'confirmed' && (
-                  <>
-                    <button 
-                      onClick={() => setConfirmingAction({ id: order._id, status: 'delivered', name: order.productId?.name })}
-                      className="flex-1 py-2 bg-emerald-50 text-emerald-600 rounded-xl text-[10px] font-black"
-                    >
-                      توصيل
-                    </button>
-                    <button 
-                      onClick={() => setConfirmingAction({ id: order._id, status: 'rejected', name: order.productId?.name })}
-                      className="flex-1 py-2 bg-rose-50 text-rose-600 rounded-xl text-[10px] font-black"
-                    >
-                      إلغاء
-                    </button>
-                  </>
-                )}
-                {(order.status === 'delivered' || order.status === 'rejected') && (
-                  <div className="w-full text-center py-2 text-[10px] font-bold text-slate-400 italic">لا توجد إجراءات متاحة</div>
+                ) : (
+                  <div className="w-full text-center py-2 text-[10px] font-bold text-slate-400 italic">للمشاهدة فقط</div>
                 )}
               </div>
             </div>
@@ -598,12 +1056,14 @@ export const DashboardProducts = ({ sellerId }: { sellerId?: string }) => {
   );
 
   return (
-    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+    <div className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
       <div className="flex items-center justify-between mb-8">
         <h3 className="text-lg font-black text-slate-900">إدارة المنتجات</h3>
-        <Link to="/seller/add-product" className="bg-primary text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all shadow-lg shadow-primary/20 flex items-center gap-2">
-          <Plus className="w-4 h-4" /> إضافة منتج جديد
-        </Link>
+        {user?.role !== 'admin' && (
+          <Link to="/seller/add-product" className="bg-primary text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all shadow-lg shadow-primary/20 flex items-center gap-2">
+            <Plus className="w-4 h-4" /> إضافة منتج جديد
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -718,33 +1178,41 @@ export const DashboardProducts = ({ sellerId }: { sellerId?: string }) => {
                   <span className="text-xs font-bold text-slate-700">الضمان:</span>
                 </div>
                 <span className="text-xs font-black text-primary">
-                  {product.warranty === 'no warranty' ? 'بدون ضمان' : 
-                   product.warranty === '6 months' ? '6 أشهر' :
+                  {product.warranty === '6 months' ? '6 أشهر' :
                    product.warranty === '1 year' ? 'سنة واحدة' :
                    product.warranty === '2 years' ? 'سنتان' :
-                   product.warranty === '3 years' ? '3 سنوات' : 'مدى الحياة'}
+                   product.warranty === '3 years' ? '3 سنوات' :
+                   product.warranty === 'lifetime' ? 'مدى الحياة' : 'بدون ضمان'}
                 </span>
               </div>
 
               <div className="grid grid-cols-3 gap-2 mt-2">
-                <Link 
-                  to={`/seller/edit-product/${product._id}`}
-                  className="flex items-center justify-center gap-2 py-3 bg-white text-slate-900 rounded-2xl text-xs font-bold hover:bg-slate-50 transition-all border border-slate-200"
-                >
-                  <Edit className="w-3.5 h-3.5" />
-                </Link>
+                {user?.role !== 'admin' && (
+                  <Link 
+                    to={`/seller/edit-product/${product._id}`}
+                    className="flex items-center justify-center gap-2 py-3 bg-white text-slate-900 rounded-2xl text-xs font-bold hover:bg-slate-50 transition-all border border-slate-200"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                  </Link>
+                )}
                 <Link 
                   to={`/product/${product._id}`}
-                  className="flex items-center justify-center gap-2 py-3 bg-primary text-white rounded-2xl text-xs font-bold hover:bg-blue-600 transition-all shadow-lg shadow-primary/20"
+                  className={cn(
+                    "flex items-center justify-center gap-2 py-3 bg-primary text-white rounded-2xl text-xs font-bold hover:bg-blue-600 transition-all shadow-lg shadow-primary/20",
+                    user?.role === 'admin' ? "col-span-3" : ""
+                  )}
                 >
                   <Eye className="w-3.5 h-3.5" />
+                  {user?.role === 'admin' && <span className="ml-2">عرض التفاصيل</span>}
                 </Link>
-                <button 
-                  onClick={() => handleDeleteProduct(product._id)}
-                  className="flex items-center justify-center gap-2 py-3 bg-rose-50 text-rose-600 rounded-2xl text-xs font-bold hover:bg-rose-100 transition-all border border-rose-100"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                {user?.role !== 'admin' && (
+                  <button 
+                    onClick={() => handleDeleteProduct(product._id)}
+                    className="flex items-center justify-center gap-2 py-3 bg-rose-50 text-rose-600 rounded-2xl text-xs font-bold hover:bg-rose-100 transition-all border border-rose-100"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -755,6 +1223,155 @@ export const DashboardProducts = ({ sellerId }: { sellerId?: string }) => {
 );
 };
 
+const TrialBanner = ({ user, stats }: { user: any, stats: any }) => {
+  const [timeLeft, setTimeLeft] = useState<string>('');
+
+  useEffect(() => {
+    if (user?.role === 'seller' && user?.trialEndDate) {
+      const calculateTimeLeft = () => {
+        const end = new Date(user.trialEndDate).getTime();
+        const now = new Date().getTime();
+        const diff = end - now;
+
+        if (diff <= 0 || !user.isTrialActive) {
+          setTimeLeft('منتهية');
+          return;
+        }
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+        setTimeLeft(`${days} يوم و ${hours} ساعة و ${minutes} دقيقة`);
+      };
+
+      calculateTimeLeft();
+      const timer = setInterval(calculateTimeLeft, 60000);
+      return () => clearInterval(timer);
+    }
+  }, [user]);
+
+  if (!user?.trialEndDate) return null;
+
+  const isTrialEnded = !user.isTrialActive || (user.trialEndDate && new Date() > new Date(user.trialEndDate));
+
+  return (
+    <motion.div 
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className={cn(
+        "relative overflow-hidden rounded-[2.5rem] p-8 sm:p-12 mb-8 group shadow-2xl",
+        isTrialEnded ? "bg-slate-50 border border-slate-200 shadow-slate-200/50" : "bg-slate-900 shadow-blue-900/10 text-white"
+      )}
+    >
+      {/* Decorative Background */}
+      {!isTrialEnded ? (
+        <>
+          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-primary/20 rounded-full blur-3xl group-hover:bg-primary/30 transition-all duration-700" />
+          <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl" />
+        </>
+      ) : (
+        <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-slate-200/50 rounded-full blur-2xl" />
+      )}
+      
+      <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-12">
+        <div className="flex-1">
+          <div className={cn(
+            "inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest mb-6 border",
+            isTrialEnded 
+              ? "bg-slate-200/50 border-slate-300 text-slate-500" 
+              : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+          )}>
+            <ShieldCheck className="w-3 h-3" /> {isTrialEnded ? 'انتهت الفترة التجريبية' : 'فترة تجريبية مجانية'}
+          </div>
+          <h2 className={cn(
+            "text-3xl sm:text-4xl font-black leading-tight mb-4",
+            isTrialEnded ? "text-slate-900" : "text-white"
+          )}>
+            {isTrialEnded ? (
+              <>
+                انتهت فترة الـ 30 يوم المجانية! <br />
+                <span className="text-primary">حان وقت تفعيل نظام العمولات.</span>
+              </>
+            ) : (
+              <>
+                أهلاً بك في نظام التجارة الذكي! <br />
+                <span className="text-primary">أنت حالياً معفى من جميع العمولات.</span>
+              </>
+            )}
+          </h2>
+          <p className={cn(
+            "text-sm font-bold leading-relaxed max-w-xl mb-8",
+            isTrialEnded ? "text-slate-600" : "text-slate-400"
+          )}>
+            {isTrialEnded 
+              ? 'لقد انتهت فترة الإعفاء من العمولات. من الآن فصاعداً، سيتم تطبيق القواعد والعمولات الموضحة أدناه على جميع الطلبات الجديدة لضمان استمرار تقديم أفضل خدمة لك.'
+              : 'استمتع ببيع منتجاتك والحصول على أرباحك كاملة خلال الفترة التجريبية. بعد انتهاء هذه الفترة، سيتم تطبيق القواعد والعمولات المذكورة أدناه لضمان استمرارية جودة الخدمة.'}
+          </p>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className={cn(
+              "backdrop-blur-sm p-4 rounded-2xl border",
+              isTrialEnded ? "bg-white border-slate-200" : "bg-white/5 border-white/10"
+            )}>
+              <div className="text-[10px] text-slate-500 font-black uppercase tracking-wider mb-1">الحالة الحالية</div>
+              <div className={cn("text-lg font-black", isTrialEnded ? "text-slate-900" : "text-white")}>
+                {isTrialEnded ? 'خاضع للعمولة' : timeLeft}
+              </div>
+            </div>
+            <div className={cn(
+              "backdrop-blur-sm p-4 rounded-2xl border",
+              isTrialEnded ? "bg-white border-slate-200" : "bg-white/5 border-white/10"
+            )}>
+              <div className="text-[10px] text-slate-500 font-black uppercase tracking-wider mb-1">العمولة الحالية</div>
+              <div className={cn("text-lg font-black font-mono", isTrialEnded ? "text-primary" : "text-emerald-400")}>
+                {isTrialEnded ? `${(stats?.globalCommissionRate * 100 || 10).toFixed(0)}%` : '0%'} 
+                <span className="text-[10px] text-slate-400 font-bold ml-2">({isTrialEnded ? 'عمولة قياسية' : 'إعفاء كامل'})</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={cn(
+          "lg:w-80 backdrop-blur-sm p-8 rounded-[2rem] border self-start",
+          isTrialEnded ? "bg-white border-slate-200" : "bg-white/5 border-white/10"
+        )}>
+          <h4 className={cn("font-black mb-6 flex items-center gap-2", isTrialEnded ? "text-slate-900" : "text-white")}>
+            <Settings className="w-5 h-5 text-primary" /> {isTrialEnded ? 'قواعد العمولات المطبقة' : 'قواعد العمولات المستقبلية'}
+          </h4>
+          <ul className="space-y-4 text-right">
+            <li className="flex items-start gap-3">
+              <div className="mt-1 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+              <div>
+                <span className="text-slate-500 text-xs font-bold block">نسبة العمولة</span>
+                <span className={cn("text-sm font-black", isTrialEnded ? "text-slate-900" : "text-white")}>
+                  {(stats?.globalCommissionRate * 100 || 10).toFixed(0)}% من سعر المنتج
+                </span>
+              </div>
+            </li>
+            <li className="flex items-start gap-3">
+              <div className="mt-1 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+              <div>
+                <span className="text-slate-500 text-xs font-bold block">أرباح التوصيل</span>
+                <span className="text-sm font-black text-emerald-600">100% للبائع (بدون عمولة)</span>
+              </div>
+            </li>
+            <li className="flex items-start gap-3">
+              <div className="mt-1 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+              <div>
+                <span className="text-slate-500 text-xs font-bold block">متى يتم حساب العمولة؟</span>
+                <span className={cn("text-sm font-black", isTrialEnded ? "text-slate-900" : "text-white")}>
+                  بمجرد قبولك وتأكيدك للطلب
+                </span>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
 export const DashboardEarnings = () => {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -762,6 +1379,33 @@ export const DashboardEarnings = () => {
   const location = useLocation();
   const path = location.pathname;
   const { searchQuery, setSearchQuery } = useDashboard();
+
+  const [timeLeft, setTimeLeft] = useState<string>('');
+
+  useEffect(() => {
+    if (user?.role === 'seller' && user?.trialEndDate) {
+      const calculateTimeLeft = () => {
+        const end = new Date(user.trialEndDate).getTime();
+        const now = new Date().getTime();
+        const diff = end - now;
+
+        if (diff <= 0 || !user.isTrialActive) {
+          setTimeLeft('منتهية');
+          return;
+        }
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+        setTimeLeft(`${days} يوم و ${hours} ساعة و ${minutes} دقيقة`);
+      };
+
+      calculateTimeLeft();
+      const timer = setInterval(calculateTimeLeft, 60000); // Update every minute
+      return () => clearInterval(timer);
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -819,9 +1463,35 @@ export const DashboardEarnings = () => {
       animate="visible"
       className="flex flex-col gap-8"
     >
+      <TrialBanner user={user} stats={stats} />
+
+      {user?.role === 'admin' && stats?.suspiciousSellers?.length > 0 && (
+        <div className="bg-rose-50 border border-rose-100 p-6 rounded-[2rem]">
+          <div className="flex items-center gap-3 mb-4 text-rose-600">
+            <Bell className="w-5 h-5" />
+            <h4 className="font-black">تنبيه: سلوك بائعين مشبوه</h4>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {stats.suspiciousSellers.map((seller: any) => (
+              <div key={seller.id} className="bg-white p-4 rounded-2xl border border-rose-100 shadow-sm">
+                <div className="flex justify-between items-start mb-2">
+                  <span className="font-bold text-slate-900 text-sm">{seller.name}</span>
+                  <Link to={`/admin/sellers/${seller.id}`} className="text-[10px] text-primary hover:underline font-bold">عرض التفاصيل</Link>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {seller.reasons.map((reason: string, idx: number) => (
+                    <span key={idx} className="text-[9px] bg-rose-50 text-rose-500 px-2 py-0.5 rounded-full font-bold">{reason}</span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <motion.div variants={itemVariants} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 transition-all group">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+        <motion.div variants={itemVariants} className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 transition-all group">
           <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <DollarSign className="w-6 h-6" />
           </div>
@@ -839,27 +1509,32 @@ export const DashboardEarnings = () => {
           </div>
         </motion.div>
 
-        <motion.div variants={itemVariants} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-emerald-500/5 transition-all group">
+        <motion.div variants={itemVariants} className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-emerald-500/5 transition-all group">
           <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <TrendingUp className="w-6 h-6" />
           </div>
           <div className="text-secondary text-[10px] font-bold uppercase tracking-widest mb-1">الطلبات المكتملة</div>
           <div className="text-4xl font-black text-slate-900 tracking-tight">{stats?.delivered || 0}</div>
-          <div className="text-[10px] text-emerald-500 mt-2 font-bold flex items-center gap-1">
-            <TrendingUp className="w-3 h-3" /> +12% عن الشهر الماضي
-          </div>
         </motion.div>
 
-        <motion.div variants={itemVariants} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-amber-500/5 transition-all group">
+        <motion.div variants={itemVariants} className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-rose-500/5 transition-all group">
+          <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <PieChartIcon className="w-6 h-6" />
+          </div>
+          <div className="text-secondary text-[10px] font-bold uppercase tracking-widest mb-1">عمولة المنصة المستحقة</div>
+          <div className="text-4xl font-black text-slate-900 tracking-tight">{stats?.totalCommission?.toLocaleString() || 0} ج.م</div>
+          <div className="text-[10px] text-rose-500 mt-2 font-bold whitespace-nowrap overflow-hidden text-ellipsis">تُحسب بمجرد قبول الطلب وتخصم من إجمالي مبيعاتك</div>
+        </motion.div>
+
+        <motion.div variants={itemVariants} className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-amber-500/5 transition-all group">
           <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <ShoppingBag className="w-6 h-6" />
           </div>
           <div className="text-secondary text-[10px] font-bold uppercase tracking-widest mb-1">إجمالي الطلبات</div>
           <div className="text-4xl font-black text-slate-900 tracking-tight">{stats?.totalOrders || 0}</div>
-          <div className="text-[10px] text-slate-400 mt-2 font-bold">نشاط مرتفع هذا الأسبوع</div>
         </motion.div>
 
-        <motion.div variants={itemVariants} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-purple-500/5 transition-all group">
+        <motion.div variants={itemVariants} className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-purple-500/5 transition-all group">
           <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <Truck className="w-6 h-6" />
           </div>
@@ -872,7 +1547,7 @@ export const DashboardEarnings = () => {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Earnings Chart */}
-        <motion.div variants={itemVariants} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm h-[400px] flex flex-col">
+        <motion.div variants={itemVariants} className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm h-[400px] flex flex-col">
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-lg font-black text-slate-900">تحليل الأرباح</h3>
@@ -925,7 +1600,7 @@ export const DashboardEarnings = () => {
         </motion.div>
 
         {/* Order Status Distribution */}
-        <motion.div variants={itemVariants} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm h-[400px] flex flex-col">
+        <motion.div variants={itemVariants} className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm h-[400px] flex flex-col">
           <h3 className="text-lg font-black text-slate-900 mb-8">توزيع الحالات</h3>
           <div className="flex-1 w-full flex items-center justify-center relative">
             <ResponsiveContainer width="100%" height="100%">
@@ -964,7 +1639,7 @@ export const DashboardEarnings = () => {
         </motion.div>
 
         {/* Sales by Category Pie Chart */}
-        <motion.div variants={itemVariants} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm h-[400px] flex flex-col">
+        <motion.div variants={itemVariants} className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm h-[400px] flex flex-col">
           <h3 className="text-lg font-black text-slate-900 mb-8">المبيعات حسب الفئة</h3>
           <div className="flex-1 w-full relative">
             <ResponsiveContainer width="100%" height="100%">
@@ -999,7 +1674,7 @@ export const DashboardEarnings = () => {
         </motion.div>
 
         {/* Review Distribution Chart */}
-        <motion.div variants={itemVariants} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm h-[400px] flex flex-col">
+        <motion.div variants={itemVariants} className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm h-[400px] flex flex-col">
           <h3 className="text-lg font-black text-slate-900 mb-8">توزيع التقييمات</h3>
           <div className="flex-1 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -1036,7 +1711,7 @@ export const DashboardEarnings = () => {
         </motion.div>
 
         {/* Top Products Bar Chart */}
-        <motion.div variants={itemVariants} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm lg:col-span-2 h-[400px] flex flex-col">
+        <motion.div variants={itemVariants} className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm lg:col-span-2 h-[400px] flex flex-col">
           <h3 className="text-lg font-black text-slate-900 mb-8">أداء المنتجات</h3>
           <div className="flex-1 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -1067,8 +1742,34 @@ export const DashboardEarnings = () => {
           </div>
         </motion.div>
 
-        {/* Recent Transactions Table */}
-        <motion.div variants={itemVariants} className="bg-white p-4 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm lg:col-span-2">
+      {/* Rules and Commission Info for all sellers */}
+      {user?.role === 'seller' && !user?.isTrialActive && (
+        <motion.div variants={itemVariants} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm col-span-full">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
+              <ShieldCheck className="w-5 h-5 transition-transform group-hover:scale-110" />
+            </div>
+            <h3 className="text-sm font-black text-slate-900">سياسة العمولات والأرباح</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
+              <span className="text-[10px] text-secondary font-black block mb-1 uppercase tracking-wider">نسبة المنصة الأساسية</span>
+              <span className="text-sm font-black text-slate-900">{((stats?.globalCommissionRate || 0) * 100).toFixed(0)}% من القيمة</span>
+            </div>
+            <div className="p-4 bg-emerald-50/30 rounded-2xl border border-emerald-100/50">
+              <span className="text-[10px] text-emerald-600 font-black block mb-1 uppercase tracking-wider">أرباح التوصيل</span>
+              <span className="text-sm font-black text-emerald-600">100% للبائع (0% عمولة)</span>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
+              <span className="text-[10px] text-secondary font-black block mb-1 uppercase tracking-wider">قاعدة الاستحقاق</span>
+              <span className="text-sm font-black text-slate-900">عند التسليم النهائي فقط</span>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Recent Transactions Table */}
+      <motion.div variants={itemVariants} className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm lg:col-span-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <h3 className="text-lg font-black text-slate-900">أحدث العمليات</h3>
             <div className="flex items-center gap-4">
@@ -1094,6 +1795,7 @@ export const DashboardEarnings = () => {
                   <th className="pb-4 px-4 font-bold">المنتج</th>
                   <th className="pb-4 px-4 font-bold">العميل</th>
                   <th className="pb-4 px-4 font-bold">المبلغ</th>
+                  <th className="pb-4 px-4 font-bold text-rose-500">عمولة المنصة</th>
                   <th className="pb-4 px-4 font-bold">التاريخ</th>
                 </tr>
               </thead>
@@ -1103,6 +1805,7 @@ export const DashboardEarnings = () => {
                     <td className="py-4 px-4 font-bold text-slate-900">{tx.product}</td>
                     <td className="py-4 px-4 text-secondary">{tx.buyer}</td>
                     <td className="py-4 px-4 font-black text-slate-900">{tx.amount} ج.م</td>
+                    <td className="py-4 px-4 font-bold text-rose-500">{tx.commission || 0} ج.م</td>
                     <td className="py-4 px-4 text-secondary text-xs">{new Date(tx.date).toLocaleDateString('ar-EG')}</td>
                   </tr>
                 ))}
@@ -1121,7 +1824,10 @@ export const DashboardEarnings = () => {
               <div key={tx.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col gap-2">
                 <div className="flex justify-between items-start">
                   <h4 className="font-bold text-slate-900 text-xs">{tx.product}</h4>
-                  <span className="text-xs font-black text-primary">{tx.amount} ج.م</span>
+                  <div className="flex flex-col items-end">
+                    <span className="text-xs font-black text-slate-900">{tx.amount} ج.م</span>
+                    <span className="text-[9px] font-bold text-rose-500">العمولة: {tx.commission || 0} ج.م</span>
+                  </div>
                 </div>
                 <div className="flex justify-between items-center text-[10px]">
                   <span className="text-secondary">{tx.buyer}</span>
@@ -1143,7 +1849,7 @@ export const DashboardEarnings = () => {
         >
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 blur-[100px] rounded-full -mr-32 -mt-32 group-hover:bg-primary/30 transition-colors"></div>
           <div className="relative z-10">
-            <h3 className="text-xl font-bold mb-2 opacity-60">عمولة المنصة الإجمالية (10%)</h3>
+            <h3 className="text-xl font-bold mb-2 opacity-60">عمولة المنصة الإجمالية ({(stats?.globalCommissionRate * 100)?.toFixed(0) || 10}%)</h3>
             <div className="text-6xl font-black tracking-tighter mb-4">{stats?.totalCommission?.toLocaleString() || 0} ج.م</div>
             <p className="text-sm opacity-60 max-w-md font-bold">هذه هي الأرباح الصافية للمنصة من جميع العمليات المكتملة بنجاح.</p>
           </div>
@@ -1208,7 +1914,7 @@ export const DashboardUsers = () => {
   );
 
   return (
-    <div className="bg-white p-4 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+    <div className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <h3 className="text-lg font-black text-slate-900">إدارة المستخدمين</h3>
         <div className="relative w-full sm:w-64">
@@ -1382,14 +2088,71 @@ export const DashboardSellerDetail = ({ sellerId }: { sellerId: string }) => {
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <div className="text-secondary text-[10px] font-bold uppercase tracking-wider mb-1">العمولة المستحقة</div>
           <div className="text-2xl font-black text-primary">{sellerInfo?.commission || 0} ج.م</div>
+          {sellerInfo?.isTrialActive && (
+            <div className="text-[9px] text-emerald-600 font-bold mt-1">فترة تجريبية نشطة</div>
+          )}
         </div>
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
           <div className="text-secondary text-[10px] font-bold uppercase tracking-wider mb-1">الطلبات المكتملة</div>
           <div className="text-2xl font-black text-emerald-500">{stats?.delivered || 0}</div>
         </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-          <div className="text-secondary text-[10px] font-bold uppercase tracking-wider mb-1">الطلبات المعلقة</div>
-          <div className="text-2xl font-black text-amber-500">{stats?.pending || 0}</div>
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="text-secondary text-[10px] font-bold uppercase tracking-wider mb-1">الفترة التجريبية</div>
+            <div className="text-xl font-black text-slate-900">{sellerInfo?.isTrialActive ? 'نشطة' : 'غير نشطة'}</div>
+            {sellerInfo?.isTrialActive && sellerInfo?.trialEndDate && (
+              <div className="text-[9px] text-slate-500 font-bold mt-1">تنتهي في: {new Date(sellerInfo.trialEndDate).toLocaleDateString('ar-EG')}</div>
+            )}
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                const res = await settingsService.toggleSellerTrial(sellerId, { isTrialActive: !sellerInfo.isTrialActive });
+                setSellerInfo(res.data);
+                toast.success('تم تحديث حالة الفترة التجريبية');
+              } catch (error) {
+                toast.error('فشل تحديث الفترة التجريبية');
+              }
+            }}
+            className={cn(
+              "mt-4 py-2 rounded-xl text-[10px] font-black transition-all",
+              sellerInfo?.isTrialActive ? "bg-rose-50 text-rose-600 hover:bg-rose-100" : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+            )}
+          >
+            {sellerInfo?.isTrialActive ? 'إيقاف الفترة التجريبية' : 'تفعيل فترة تجريبية (30 يوم)'}
+          </button>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="text-secondary text-[10px] font-bold uppercase tracking-wider mb-1">حالة الحساب</div>
+            <div className={cn(
+              "text-xl font-black",
+              sellerInfo?.isLocked ? "text-rose-500" : "text-emerald-500"
+            )}>
+              {sellerInfo?.isLocked ? 'مغلق' : 'نشط'}
+            </div>
+            {sellerInfo?.subscriptionLockDate && (
+              <div className="text-[9px] text-slate-500 font-bold mt-1">تاريخ القفل التلقائي: {new Date(sellerInfo.subscriptionLockDate).toLocaleDateString('ar-EG')}</div>
+            )}
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                const res = await authService.toggleLock(sellerId);
+                setSellerInfo({ ...sellerInfo, isLocked: res.data.isLocked });
+                toast.success(res.data.isLocked ? 'تم قفل الحساب' : 'تم تفعيل الحساب');
+              } catch (error) {
+                toast.error('فشل تغيير حالة الحساب');
+              }
+            }}
+            className={cn(
+              "mt-4 py-2 rounded-xl text-[10px] font-black transition-all",
+              sellerInfo?.isLocked ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100" : "bg-rose-50 text-rose-600 hover:bg-rose-100"
+            )}
+          >
+            {sellerInfo?.isLocked ? 'تفعيل الحساب (فتح)' : 'قفل الحساب (تعطيل)'}
+          </button>
         </div>
       </div>
 
@@ -1444,6 +2207,17 @@ export const DashboardSellers = () => {
     }
   };
 
+  const handleToggleLock = async (id: string) => {
+    try {
+      const res = await authService.toggleLock(id);
+      setSellers(sellers.map(s => s._id === id ? { ...s, isLocked: res.data.isLocked } : s));
+      toast.success(res.data.isLocked ? 'تم قفل حساب البائع' : 'تم إلغاء قفل حساب البائع');
+    } catch (error) {
+      console.error('Error toggling lock:', error);
+      toast.error('فشل في تغيير حالة قفل الحساب');
+    }
+  };
+
   if (loading) return <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
 
   const filteredSellers = sellers.filter(seller => 
@@ -1453,7 +2227,7 @@ export const DashboardSellers = () => {
   );
 
   return (
-    <div className="bg-white p-4 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+    <div className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <h3 className="text-lg font-black text-slate-900">إدارة البائعين</h3>
         <div className="relative w-full sm:w-64">
@@ -1494,7 +2268,15 @@ export const DashboardSellers = () => {
                         {seller?.name?.charAt(0) || 'S'}
                       </div>
                       <div>
-                        <span className="font-bold text-slate-900 block">{seller.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 block">{seller.name}</span>
+                          {seller.isTrialActive && (
+                            <span className="text-[8px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full font-black">تجريبي</span>
+                          )}
+                          {seller.isLocked && (
+                            <span className="text-[8px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded-full font-black flex items-center gap-0.5"><Lock className="w-2 h-2" /> متوقف</span>
+                          )}
+                        </div>
                         <span className="text-[10px] text-secondary">{seller.location?.address || 'لا يوجد موقع'}</span>
                       </div>
                     </div>
@@ -1524,6 +2306,16 @@ export const DashboardSellers = () => {
                         <Eye className="w-4 h-4" />
                       </Link>
                       <button 
+                        onClick={() => handleToggleLock(seller._id)}
+                        className={cn(
+                          "p-2 rounded-lg transition-colors",
+                          seller.isLocked ? "text-emerald-500 hover:bg-emerald-50" : "text-amber-500 hover:bg-amber-50"
+                        )}
+                        title={seller.isLocked ? "فك القفل" : "قفل الحساب"}
+                      >
+                        {seller.isLocked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                      </button>
+                      <button 
                         onClick={() => handleDeleteSeller(seller._id)}
                         className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                         title="حذف البائع"
@@ -1549,7 +2341,15 @@ export const DashboardSellers = () => {
                   {seller?.name?.charAt(0) || 'S'}
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">{seller.name}</h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-bold text-slate-900 text-sm">{seller.name}</h4>
+                    {seller.isTrialActive && (
+                      <span className="text-[8px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full font-black">تجريبي</span>
+                    )}
+                    {seller.isLocked && (
+                      <span className="text-[8px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded-full font-black flex items-center gap-0.5"><Lock className="w-2 h-2" /> متوقف</span>
+                    )}
+                  </div>
                   <span className="text-[10px] text-secondary">{seller.email}</span>
                 </div>
               </div>
@@ -1579,6 +2379,15 @@ export const DashboardSellers = () => {
                 <Link to={`/seller/${seller._id}`} className="p-2 text-secondary bg-white border border-slate-200 rounded-lg">
                   <Eye className="w-4 h-4" />
                 </Link>
+                <button 
+                  onClick={() => handleToggleLock(seller._id)}
+                  className={cn(
+                    "p-2 bg-white border border-slate-200 rounded-lg",
+                    seller.isLocked ? "text-emerald-500" : "text-amber-500"
+                  )}
+                >
+                  {seller.isLocked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                </button>
                 <button 
                   onClick={() => handleDeleteSeller(seller._id)}
                   className="p-2 text-rose-500 bg-white border border-slate-200 rounded-lg"
@@ -1624,6 +2433,7 @@ export const DashboardPage = () => {
   if (path.includes('/products')) return <DashboardProducts />;
   if (path.includes('/earnings')) return <DashboardEarnings />;
   if (path.includes('/users')) return <DashboardUsers />;
+  if (path.includes('/settings')) return <DashboardSettings />;
   
   const sellerMatch = path.match(/\/admin\/sellers\/([^\/]+)/i);
   if (sellerMatch && sellerMatch[1] !== 'sellers') return <DashboardSellerDetail sellerId={sellerMatch[1]} />;
@@ -1636,10 +2446,8 @@ export const DashboardPage = () => {
 
   const dashboardStats = [
     { 
-      title: isAdmin ? 'إجمالي مبيعات المنصة' : 'إجمالي المبيعات', 
+      title: isAdmin ? 'إجمالي مبيعات البائعين' : 'إجمالي المبيعات', 
       value: `${stats?.totalEarnings || 0} ج.م`, 
-      trend: '+10%', 
-      isUp: true, 
       icon: DollarSign, 
       color: 'text-emerald-500', 
       bg: 'bg-emerald-50' 
@@ -1647,8 +2455,6 @@ export const DashboardPage = () => {
     { 
       title: isAdmin ? 'إجمالي المستخدمين' : 'الطلبات المعلقة', 
       value: isAdmin ? (stats?.totalUsers || 0) : (stats?.pending || 0), 
-      trend: isAdmin ? '+12%' : '-2%', 
-      isUp: isAdmin ? true : false, 
       icon: isAdmin ? Users : ShoppingBag, 
       color: isAdmin ? 'text-purple-500' : 'text-rose-500', 
       bg: isAdmin ? 'bg-purple-50' : 'bg-rose-50' 
@@ -1656,8 +2462,6 @@ export const DashboardPage = () => {
     { 
       title: isAdmin ? 'إجمالي البائعين' : 'الطلبات المكتملة', 
       value: isAdmin ? (stats?.totalSellers || 0) : (stats?.delivered || 0), 
-      trend: '+5%', 
-      isUp: true, 
       icon: isAdmin ? ShieldCheck : TrendingUp, 
       color: isAdmin ? 'text-blue-500' : 'text-blue-500', 
       bg: isAdmin ? 'bg-blue-50' : 'bg-blue-50' 
@@ -1665,20 +2469,30 @@ export const DashboardPage = () => {
     { 
       title: isAdmin ? 'إجمالي المنتجات' : 'إجمالي الطلبات', 
       value: isAdmin ? (stats?.totalProducts || 0) : (stats?.totalOrders || 0), 
-      trend: '+3%', 
-      isUp: true, 
       icon: isAdmin ? Package : Package, 
       color: 'text-amber-500', 
       bg: 'bg-amber-50' 
     },
+    ...(!isAdmin ? [{
+      title: 'عمولة المنصة المستحقة',
+      value: `${stats?.totalCommission || 0} ج.م`,
+      icon: PieChartIcon,
+      color: 'text-rose-500',
+      bg: 'bg-rose-50'
+    }] : []),
   ];
 
   return (
     <div className="flex flex-col gap-8">
+      <TrialBanner user={user} stats={stats} />
+      
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {dashboardStats.map((stat) => (
-          <div key={stat.title} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+      <div className={cn(
+        "grid grid-cols-1 sm:grid-cols-2 gap-6",
+        isAdmin ? "lg:grid-cols-4" : "lg:grid-cols-3 xl:grid-cols-5"
+      )}>
+        {dashboardStats.map((stat, idx) => (
+          <div key={stat.title} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative group">
             <div className="flex items-center justify-between mb-4">
               <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center", stat.bg, stat.color)}>
                 <stat.icon className="w-6 h-6" />
@@ -1686,11 +2500,25 @@ export const DashboardPage = () => {
             </div>
             <div className="text-secondary text-xs font-bold mb-1">{stat.title}</div>
             <div className="text-2xl font-black text-slate-900">{stat.value}</div>
+            
+            {/* Breakdown for Total Sales card (index 0) */}
+            {idx === 0 && (
+              <div className="flex flex-col gap-1 mt-3 pt-3 border-t border-slate-50">
+                <div className="text-[10px] text-slate-500 font-bold flex justify-between">
+                  <span>{isAdmin ? 'مبيعات المنتجات:' : 'أرباح المنتجات:'}</span>
+                  <span>{stats?.totalProductEarnings?.toLocaleString() || 0} ج.م</span>
+                </div>
+                <div className="text-[10px] text-emerald-600 font-bold flex justify-between">
+                  <span>أرباح التوصيل:</span>
+                  <span>{stats?.totalDeliveryEarnings?.toLocaleString() || 0} ج.م</span>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
 
-      <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+      <div className="bg-white p-4 sm:p-6 lg:p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
         <h3 className="text-lg font-black text-slate-900 mb-4">أهلاً بك، {user?.name}</h3>
         <p className="text-secondary text-sm">
           {isAdmin 
@@ -1699,14 +2527,35 @@ export const DashboardPage = () => {
         </p>
       </div>
 
+      {!isAdmin && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-rose-600 p-4 sm:p-6 lg:p-8 rounded-[2.5rem] text-white">
+            <h4 className="text-sm font-bold opacity-60 mb-2">عمولة المنصة المستحقة</h4>
+            <div className="text-4xl font-black">{stats?.totalCommission || 0} ج.م</div>
+            <p className="text-[10px] opacity-70 mt-4 font-bold leading-relaxed">
+              هذا المبلغ يتم استقطاعه من إجمالي مبيعات منتجاتك بنسبة {((stats?.globalCommissionRate || 0) * 100).toFixed(0)}% لصالح المنصة.
+            </p>
+          </div>
+          <div className="bg-emerald-600 p-4 sm:p-6 lg:p-8 rounded-[2.5rem] text-white">
+            <h4 className="text-sm font-bold opacity-60 mb-2">صافي أرباح المنتجات</h4>
+            <div className="text-4xl font-black">{( (stats?.totalProductEarnings || 0) - (stats?.totalCommission || 0) ) || 0} ج.م</div>
+            <p className="text-[10px] opacity-70 mt-4 font-bold">
+              صافي الربح المتبقي لك بعد خصم عمولة المنصة (لا يشمل أرباح التوصيل).
+            </p>
+          </div>
+        </div>
+      )}
+
       {isAdmin && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white">
+          <div className="bg-slate-900 p-4 sm:p-6 lg:p-8 rounded-[2.5rem] text-white">
             <h4 className="text-sm font-bold opacity-60 mb-2">إجمالي عمولة المنصة</h4>
             <div className="text-4xl font-black">{stats?.totalCommission || 0} ج.م</div>
-            <p className="text-[10px] opacity-40 mt-4 font-bold">يتم احتساب العمولة بناءً على نسبة 0% حالياً (معطلة)</p>
+            <p className="text-[10px] opacity-40 mt-4 font-bold">
+              تُحسب العمولة بنسبة {((stats?.globalCommissionRate || 0) * 100).toFixed(0)}% فور قبول البائع للطلب
+            </p>
           </div>
-          <div className="bg-primary p-8 rounded-[2.5rem] text-white">
+          <div className="bg-primary p-4 sm:p-6 lg:p-8 rounded-[2.5rem] text-white">
             <h4 className="text-sm font-bold opacity-60 mb-2">المنتجات النشطة</h4>
             <div className="text-4xl font-black">{stats?.totalProducts || 0}</div>
             <Link to="/admin/products" className="text-[10px] font-bold underline mt-4 block">إدارة المنتجات</Link>

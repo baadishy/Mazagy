@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Heart, Star, MessageCircle, ShoppingBag, Loader2, Truck, CheckCircle2, ShoppingCart, Share2 } from 'lucide-react';
+import { Heart, Star, MessageCircle, ShoppingBag, Loader2, Truck, CheckCircle2, ShoppingCart, Share2, X, Palette, Ruler } from 'lucide-react';
 import { Product } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { cn, formatWhatsAppNumber } from '../lib/utils';
 import { orderService } from '../services/api';
 import { CATEGORIES } from '../constants';
+import { toast } from 'sonner';
 
 interface ProductCardProps {
   product: Product;
@@ -20,6 +21,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, view = 'grid'
   const [orderLoading, setOrderLoading] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
+  const [showSelection, setShowSelection] = useState(false);
+  const [selectedColor, setSelectedColor] = useState('');
+  const [selectedSize, setSelectedSize] = useState('');
   
   const isWishlisted = user?.wishlist?.includes(product._id);
 
@@ -35,12 +39,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, view = 'grid'
     setIsToggling(false);
   };
 
-  const handleOrder = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleOrder = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     
     if (!user) {
       navigate('/login');
+      return;
+    }
+
+    // Check if we need to show selection modal first
+    const hasColors = (product.colors?.length || 0) > 0;
+    const hasSizes = (product.sizes?.length || 0) > 0;
+
+    if ((hasColors && !selectedColor) || (hasSizes && !selectedSize)) {
+      setShowSelection(true);
       return;
     }
 
@@ -53,13 +68,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, view = 'grid'
         buyerPhone: user.phone,
         buyerAddress: user.location?.address || '',
         quantity: 1,
+        selectedColor,
+        selectedSize,
         price: product.isOnSale && product.salePrice ? product.salePrice : product.price,
         deliveryFee: product.deliveryAvailable ? product.deliveryFee : 0
       });
       setOrderSuccess(true);
+      setShowSelection(false);
+      setSelectedColor('');
+      setSelectedSize('');
+      toast.success('تم إرسال طلبك بنجاح!');
       setTimeout(() => setOrderSuccess(false), 3000);
     } catch (err) {
       console.error('Order failed:', err);
+      toast.error('عذراً، فشل إرسال الطلب');
     } finally {
       setOrderLoading(false);
     }
@@ -329,6 +351,107 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, view = 'grid'
           )}
         </div>
       </div>
+      
+      {/* Selection Modal Overlay */}
+      <AnimatePresence>
+        {showSelection && (
+          <div 
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowSelection(false); }}
+          >
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-[2.5rem] w-full max-w-sm overflow-hidden shadow-2xl relative z-10 p-8"
+              dir="rtl"
+            >
+              <button 
+                onClick={() => setShowSelection(false)}
+                className="absolute top-6 left-6 p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mx-auto mb-4">
+                  <ShoppingBag className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900">تخصيص الطلب</h3>
+                <p className="text-xs text-slate-400 font-bold mt-1">يرجى اختيار اللون والمقاس المفضل</p>
+              </div>
+
+              <div className="space-y-6">
+                {(product.colors?.length || 0) > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-slate-900 font-black">
+                      <Palette className="w-4 h-4 text-primary" />
+                      <label className="text-xs">اللون المفضل</label>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {product.colors?.map(color => (
+                        <button
+                          key={color}
+                          onClick={() => setSelectedColor(color)}
+                          className={cn(
+                            "px-4 py-2 rounded-xl text-[10px] font-black border transition-all",
+                            selectedColor === color 
+                              ? "bg-slate-900 text-white border-slate-900 shadow-lg" 
+                              : "bg-white text-slate-500 border-slate-200 hover:border-primary"
+                          )}
+                        >
+                          {color}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {(product.sizes?.length || 0) > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-slate-900 font-black">
+                      <Ruler className="w-4 h-4 text-primary" />
+                      <label className="text-xs">المقاس المفضل</label>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {product.sizes?.map(size => (
+                        <button
+                          key={size}
+                          onClick={() => setSelectedSize(size)}
+                          className={cn(
+                            "px-4 py-2 rounded-xl text-[10px] font-black border transition-all",
+                            selectedSize === size 
+                              ? "bg-primary text-white border-primary shadow-lg" 
+                              : "bg-white text-slate-500 border-slate-200 hover:border-primary"
+                          )}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <button 
+                  onClick={() => handleOrder()}
+                  disabled={orderLoading || ((product.colors?.length || 0) > 0 && !selectedColor) || ((product.sizes?.length || 0) > 0 && !selectedSize)}
+                  className="w-full h-14 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-primary transition-all shadow-xl shadow-slate-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
+                >
+                  {orderLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShoppingCart className="w-5 h-5" />}
+                  تأكيد وإتمام الطلب
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

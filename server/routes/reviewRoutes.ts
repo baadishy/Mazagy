@@ -49,7 +49,7 @@ router.post('/', authMiddleware, async (req, res) => {
     const averageRating = reviews.reduce((acc, item: any) => item.rating + acc, 0) / numReviews;
 
     product.numReviews = numReviews;
-    product.rating = Number(averageRating.toFixed(1));
+    product.averageRating = Number(averageRating.toFixed(1));
     await product.save();
 
     res.status(201).json(review);
@@ -65,7 +65,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const review = await Review.findById(req.params.id);
     if (!review) return res.status(404).json({ message: 'Review not found' });
 
-    if (review.userId.toString() !== (req as any).user.id && (req as any).user.role !== 'admin') {
+    if (review.userId.toString() !== (req as any).user.id && (req as any).user.role !== 'admin' && (req as any).user.role !== 'moderator') {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
@@ -81,7 +81,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
 
     await Product.findByIdAndUpdate(productId, {
       numReviews,
-      rating: Number(averageRating.toFixed(1))
+      averageRating: Number(averageRating.toFixed(1))
     });
 
     res.json({ message: 'Review deleted' });

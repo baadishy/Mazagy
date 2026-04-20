@@ -19,8 +19,8 @@ export const Header = () => {
     { name: 'من نحن', path: '/support' },
   ];
 
-  if (user?.role === 'seller' || user?.role === 'admin') {
-    navLinks.push({ name: 'لوحة التاجر', path: '/seller' });
+  if (user?.role === 'seller' || user?.role === 'admin' || user?.role === 'moderator') {
+    navLinks.push({ name: 'لوحة التاجر', path: user.role === 'seller' ? '/seller' : '/admin' });
   }
 
   return (
@@ -53,8 +53,8 @@ export const Header = () => {
             <Search className="w-5 h-5 text-secondary" />
           </Link>
           <NotificationBell />
-          {(user?.role === 'seller' || user?.role === 'admin') && (
-            <Link to="/seller" className="p-2 hover:bg-slate-100 rounded-full transition-colors" title="لوحة التاجر">
+          {(user?.role === 'seller' || user?.role === 'admin' || user?.role === 'moderator') && (
+            <Link to={user.role === 'seller' ? "/seller" : "/admin"} className="p-2 hover:bg-slate-100 rounded-full transition-colors" title="لوحة التاجر">
               <LayoutDashboard className="w-5 h-5 text-primary" />
             </Link>
           )}
@@ -140,6 +140,7 @@ export const Footer = () => {
             <li><Link to="/products" className="hover:text-primary">كل المنتجات</Link></li>
             <li><Link to="/products?sale=true" className="hover:text-primary text-rose-500 font-bold">العروض والتخفيضات</Link></li>
             <li><Link to="/support" className="hover:text-primary">من نحن</Link></li>
+            <li><Link to="/seller/terms" className="hover:text-primary font-bold text-slate-900 border-b-2 border-primary/20">دليل وقوانين البائعين</Link></li>
           </ul>
         </div>
         <div>

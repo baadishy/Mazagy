@@ -35,6 +35,14 @@ export function formatWhatsAppNumber(phone: string): string {
   return clean;
 }
 
+export function isEgyptianPhone(phone: string): boolean {
+  if (!phone) return false;
+  const clean = phone.replace(/\D/g, '');
+  // Egyptian mobile numbers are 11 digits starting with 01
+  // Valid start: 010, 011, 012, 015
+  return /^01[0125][0-9]{8}$/.test(clean);
+}
+
 export function formatDisplayPhone(phone: string): string {
   if (!phone) return '';
   let clean = phone.replace(/\D/g, '');

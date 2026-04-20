@@ -16,16 +16,28 @@ import {
   AlertCircle,
   Save,
   ShieldCheck,
-  Layers
+  Layers,
+  Palette,
+  Ruler
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { productService } from '../services/api';
 import { DashboardLayout } from './DashboardPage';
+import { useAuth } from '../context/AuthContext';
+import { toast } from 'sonner';
 
 export const AddProductPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { id } = useParams();
   const isEdit = !!id;
+
+  useEffect(() => {
+    if (user && user.role === 'admin') {
+      toast.error('غير مصرح للمسؤولين بإضافة منتجات');
+      navigate('/admin');
+    }
+  }, [user, navigate]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(isEdit);
   const [error, setError] = useState('');
@@ -37,16 +49,20 @@ export const AddProductPage = () => {
     price: '',
     warranty: 'no warranty',
     images: [] as string[],
+    colors: [] as string[],
+    sizes: [] as string[],
     isOnSale: false,
     salePrice: '',
     saleStart: '',
     saleEnd: '',
     deliveryAvailable: false,
-    deliveryFee: '0',
+    deliveryFee: '',
     category: 'others'
   });
 
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [colorInput, setColorInput] = useState('');
+  const [sizeInput, setSizeInput] = useState('');
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -60,12 +76,14 @@ export const AddProductPage = () => {
             price: p.price.toString(),
             warranty: p.warranty || 'no warranty',
             images: p.images,
+            colors: p.colors || [],
+            sizes: p.sizes || [],
             isOnSale: p.isOnSale || false,
             salePrice: p.salePrice?.toString() || '',
             saleStart: p.saleStart ? new Date(p.saleStart).toISOString().split('T')[0] : '',
             saleEnd: p.saleEnd ? new Date(p.saleEnd).toISOString().split('T')[0] : '',
             deliveryAvailable: p.deliveryAvailable || false,
-            deliveryFee: p.deliveryFee?.toString() || '0',
+            deliveryFee: p.deliveryFee ? p.deliveryFee.toString() : '',
             category: p.category || 'others'
           });
           setImagePreviews(p.images);
@@ -109,6 +127,40 @@ export const AddProductPage = () => {
       images: prev.images.filter((_, i) => i !== index)
     }));
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const addColor = () => {
+    if (colorInput.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        colors: [...prev.colors, colorInput.trim()]
+      }));
+      setColorInput('');
+    }
+  };
+
+  const removeColor = (color: string) => {
+    setFormData(prev => ({
+      ...prev,
+      colors: prev.colors.filter(c => c !== color)
+    }));
+  };
+
+  const addSize = () => {
+    if (sizeInput.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        sizes: [...prev.sizes, sizeInput.trim()]
+      }));
+      setSizeInput('');
+    }
+  };
+
+  const removeSize = (size: string) => {
+    setFormData(prev => ({
+      ...prev,
+      sizes: prev.sizes.filter(s => s !== size)
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -226,7 +278,7 @@ export const AddProductPage = () => {
                   <input 
                     type="number" 
                     required
-                    step="0.01"
+                    step="any"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     placeholder="0.00"
@@ -323,6 +375,113 @@ export const AddProductPage = () => {
             </div>
           </div>
 
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col gap-6">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+                <Palette className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg font-black text-slate-900">المميزات (الألوان والمقاسات)</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Colors */}
+              <div className="flex flex-col gap-4">
+                <label className="text-xs font-bold text-secondary px-2">الألوان المتاحة</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Palette className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
+                    <input 
+                      type="text" 
+                      value={colorInput}
+                      onChange={(e) => setColorInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addColor())}
+                      placeholder="أضف لوناً (مثال: أحمر)"
+                      className="w-full bg-slate-50 border-none rounded-2xl pr-10 pl-4 py-3 text-sm focus:ring-2 focus:ring-primary/20" 
+                    />
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={addColor}
+                    className="w-12 h-12 bg-primary text-white rounded-2xl flex items-center justify-center hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  {formData.colors.map((color, idx) => (
+                    <motion.span 
+                      key={idx}
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="bg-slate-100 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-2 border border-slate-200"
+                    >
+                      {color}
+                      <button 
+                        type="button"
+                        onClick={() => removeColor(color)}
+                        className="p-0.5 hover:bg-slate-200 rounded-md text-slate-400 hover:text-rose-500"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </motion.span>
+                  ))}
+                  {formData.colors.length === 0 && (
+                    <p className="text-[10px] text-slate-400 font-bold px-2 italic">لم يتم إضافة ألوان بعد</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Sizes */}
+              <div className="flex flex-col gap-4">
+                <label className="text-xs font-bold text-secondary px-2">المقاسات المتاحة</label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Ruler className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
+                    <input 
+                      type="text" 
+                      value={sizeInput}
+                      onChange={(e) => setSizeInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSize())}
+                      placeholder="أضف مقاساً (مثال: XL)"
+                      className="w-full bg-slate-50 border-none rounded-2xl pr-10 pl-4 py-3 text-sm focus:ring-2 focus:ring-primary/20" 
+                    />
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={addSize}
+                    className="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                  {formData.sizes.map((size, idx) => (
+                    <motion.span 
+                      key={idx}
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-2 border border-indigo-100"
+                    >
+                      {size}
+                      <button 
+                        type="button"
+                        onClick={() => removeSize(size)}
+                        className="p-0.5 hover:bg-indigo-100 rounded-md text-indigo-400 hover:text-rose-500"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </motion.span>
+                  ))}
+                  {formData.sizes.length === 0 && (
+                    <p className="text-[10px] text-slate-400 font-bold px-2 italic">لم يتم إضافة مقاسات بعد</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Sale Info */}
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col gap-6">
             <div className="flex items-center justify-between">
@@ -356,7 +515,7 @@ export const AddProductPage = () => {
                     <DollarSign className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
                     <input 
                       type="number" 
-                      step="0.01"
+                      step="any"
                       value={formData.salePrice}
                       onChange={(e) => setFormData({ ...formData, salePrice: e.target.value })}
                       placeholder="0.00"
@@ -425,7 +584,7 @@ export const AddProductPage = () => {
                     <DollarSign className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
                     <input 
                       type="number" 
-                      step="0.01"
+                      step="any"
                       value={formData.deliveryFee}
                       onChange={(e) => setFormData({ ...formData, deliveryFee: e.target.value })}
                       placeholder="0.00"

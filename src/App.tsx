@@ -11,6 +11,8 @@ import { DashboardLayout, DashboardPage } from './pages/DashboardPage';
 import { AddProductPage } from './pages/AddProductPage';
 import { SupportPage } from './pages/SupportPage';
 import { AdminLoginPage } from './pages/AdminLoginPage';
+import SellerTermsPage from './pages/SellerTermsPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
 
@@ -46,6 +48,7 @@ export default function App() {
           <Route path="/seller/:sellerId" element={<MainLayout><SellerPage /></MainLayout>} />
           <Route path="/profile" element={<MainLayout><ProfilePage /></MainLayout>} />
           <Route path="/support" element={<MainLayout><SupportPage /></MainLayout>} />
+          <Route path="/seller/terms" element={<MainLayout><SellerTermsPage /></MainLayout>} />
           
           {/* Auth Routes */}
           <Route path="/login" element={<AuthPage type="login" />} />
@@ -67,6 +70,10 @@ export default function App() {
           <Route path="/admin/users" element={<DashboardLayout title="المستخدمين"><DashboardPage /></DashboardLayout>} />
           <Route path="/admin/sellers" element={<DashboardLayout title="البائعين"><DashboardPage /></DashboardLayout>} />
           <Route path="/admin/sellers/:id" element={<DashboardLayout title="تفاصيل البائع"><DashboardPage /></DashboardLayout>} />
+          <Route path="/admin/settings" element={<DashboardLayout title="إعدادات المنصة"><DashboardPage /></DashboardLayout>} />
+          
+          {/* 404 Fallback */}
+          <Route path="*" element={<MainLayout><NotFoundPage /></MainLayout>} />
         </Routes>
       </Router>
     </AuthProvider>

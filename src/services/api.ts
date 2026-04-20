@@ -3,7 +3,36 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: '/api',
   withCredentials: true,
+  timeout: 15000,
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const { config, response } = error;
+    
+    // Retry on network errors or 503/504 status codes (transient server issues)
+    // Only retry GET requests or specific safe requests to avoid duplicate side effects
+    const isRetryable = !response || [503, 504].includes(response.status);
+    const shouldRetry = isRetryable && config && !config._retry && config.method === 'get';
+
+    if (shouldRetry) {
+      config._retry = true;
+      // Exponential backoff or simple delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return api(config);
+    }
+
+    if (error.message === 'Network Error') {
+      console.warn('API Network Error - may be CORS, blocked request, or server restart', {
+        url: error.config?.url,
+        method: error.config?.method,
+        origin: window.location.origin
+      });
+    }
+    return Promise.reject(error);
+  }
+);
 
 export const authService = {
   signup: (data: any) => api.post('/auth/signup', data),
@@ -16,6 +45,8 @@ export const authService = {
   getWishlist: () => api.get('/auth/wishlist'),
   followSeller: (sellerId: string) => api.post(`/auth/follow/${sellerId}`),
   getAllUsers: () => api.get('/auth/admin/users'),
+  toggleLock: (id: string) => api.post(`/auth/admin/users/${id}/toggle-lock`),
+  acknowledgeRules: () => api.post('/auth/acknowledge-rules'),
   deleteUser: (id: string) => api.delete(`/auth/admin/users/${id}`),
   logout: () => api.post('/auth/logout'),
 };
@@ -50,6 +81,13 @@ export const reviewService = {
   getReviews: (productId: string) => api.get(`/reviews/product/${productId}`),
   createReview: (data: { productId: string; rating: number; comment: string }) => api.post('/reviews', data),
   deleteReview: (id: string) => api.delete(`/reviews/${id}`),
+};
+
+export const settingsService = {
+  getSettings: () => api.get('/settings'),
+  updateSettings: (data: any) => api.put('/settings', data),
+  toggleSellerTrial: (sellerId: string, data: { isTrialActive: boolean; trialDurationDays?: number }) => 
+    api.put(`/settings/seller-trial/${sellerId}`, data),
 };
 
 export default api;

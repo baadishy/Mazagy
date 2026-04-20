@@ -3,7 +3,7 @@ export interface User {
   name: string;
   email: string;
   phone: string;
-  role: 'buyer' | 'seller' | 'admin';
+  role: 'buyer' | 'seller' | 'admin' | 'moderator';
   wishlist: string[];
   location: {
     address: string;
@@ -12,6 +12,11 @@ export interface User {
   };
   rating?: number;
   numReviews?: number;
+  isTrialActive?: boolean;
+  trialEndDate?: string;
+  isLocked?: boolean;
+  subscriptionLockDate?: string;
+  hasSeenRules?: boolean;
 }
 
 export interface Product {
@@ -29,8 +34,11 @@ export interface Product {
       lat: number;
       lng: number;
     };
+    isLocked?: boolean;
   };
   images: string[];
+  colors?: string[];
+  sizes?: string[];
   isOnSale: boolean;
   salePrice?: number;
   saleStart?: string;
@@ -57,6 +65,8 @@ export interface Order {
   buyerPhone: string;
   buyerAddress: string;
   quantity: number;
+  selectedColor?: string;
+  selectedSize?: string;
   price: number;
   deliveryFee: number;
   status: 'pending' | 'confirmed' | 'rejected' | 'delivered';

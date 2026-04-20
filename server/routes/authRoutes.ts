@@ -2,21 +2,47 @@ import express from 'express';
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
+import { Settings } from '../models/Settings';
 import { authMiddleware } from '../middleware/auth';
 
 import { JWT_SECRET } from '../config';
 
 const router = express.Router();
 
+const initSellerTrial = async (user: any) => {
+  // Only initialize trial if the user has NEVER had a trial started/ended before
+  if (user.role === 'seller' && !user.trialStartDate && !user.trialEndDate) {
+    const settings = await Settings.findOne() || { isTrialEnabled: true, trialDurationDays: 30 };
+    if (settings.isTrialEnabled) {
+      user.isTrialActive = true;
+      user.trialStartDate = new Date();
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + settings.trialDurationDays);
+      user.trialEndDate = endDate;
+      
+      // Calculate lock date (30 days after trial ends)
+      const lockDate = new Date(endDate);
+      lockDate.setDate(lockDate.getDate() + 30);
+      user.subscriptionLockDate = lockDate;
+      
+      await user.save();
+    }
+  }
+  return user;
+};
+
 // Signup
 router.post('/signup', async (req, res) => {
   try {
-    const { name, email, phone, location, password, role } = req.body;
-    const existingUser = await User.findOne({ email });
+    const { name, phone, location, password, role } = req.body;
+    const existingUser = await User.findOne({ phone });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({ message: 'رقم الهاتف مستخدم بالفعل' });
     }
-    const user = new User({ name, email, phone, location, password, role });
+    const user = new User({ name, phone, location, password, role });
+    
+    await initSellerTrial(user);
+    
     await user.save();
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     res.cookie('token', token, { 
@@ -24,8 +50,24 @@ router.post('/signup', async (req, res) => {
       secure: true, 
       sameSite: 'none' 
     });
-    res.status(201).json({ user: { id: user._id, name, email, role } });
-  } catch (error) {
+    res.status(201).json({ 
+      user: { 
+        id: user._id, 
+        name, 
+        role,
+        phone: user.phone,
+        location: user.location,
+        isTrialActive: user.isTrialActive,
+        trialEndDate: user.trialEndDate,
+        isLocked: user.isLocked,
+        subscriptionLockDate: user.subscriptionLockDate,
+        hasSeenRules: user.hasSeenRules
+      } 
+    });
+  } catch (error: any) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'رقم الهاتف مستخدم بالفعل' });
+    }
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -33,18 +75,49 @@ router.post('/signup', async (req, res) => {
 // Login
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const user: any = await User.findOne({ email });
+    const { phone, password } = req.body;
+    const user: any = await User.findOne({ phone });
     if (!user || !(await user.comparePassword(password))) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'بيانات الدخول غير صحيحة' });
     }
+
+    await initSellerTrial(user);
+
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
     res.cookie('token', token, { 
       httpOnly: true, 
       secure: true, 
       sameSite: 'none' 
     });
-    res.json({ user: { id: user._id, name: user.name, email, role: user.role } });
+    res.json({ 
+      user: { 
+        id: user._id, 
+        name: user.name, 
+        role: user.role,
+        phone: user.phone,
+        location: user.location,
+        isTrialActive: user.isTrialActive,
+        trialEndDate: user.trialEndDate,
+        isLocked: user.isLocked,
+        subscriptionLockDate: user.subscriptionLockDate,
+        hasSeenRules: user.hasSeenRules
+      } 
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Acknowledge Rules
+router.post('/acknowledge-rules', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById((req as any).user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    user.hasSeenRules = true;
+    await user.save();
+    
+    res.json({ success: true, hasSeenRules: true });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -67,7 +140,19 @@ router.post('/admin/login', async (req, res) => {
       secure: true, 
       sameSite: 'none' 
     });
-    res.json({ user: { id: user._id, name: user.name, email: user.email, role: user.role } });
+    res.json({ 
+      user: { 
+        id: user._id, 
+        name: user.name, 
+        role: user.role,
+        phone: user.phone,
+        location: user.location,
+        isTrialActive: user.isTrialActive,
+        trialEndDate: user.trialEndDate,
+        isLocked: user.isLocked,
+        subscriptionLockDate: user.subscriptionLockDate
+      } 
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -76,17 +161,33 @@ router.post('/admin/login', async (req, res) => {
 // Profile
 router.get('/profile', authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById((req as any).user.id).select('-password');
+    let user: any = await User.findById((req as any).user.id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
+
+    await initSellerTrial(user);
+
+    // Auto-lock check: if trial + 1 month passed and not manually unlocked
+    if (user.role === 'seller' && user.subscriptionLockDate && !user.isLocked) {
+      const now = new Date();
+      if (now > user.subscriptionLockDate) {
+        user.isLocked = true;
+        await user.save();
+      }
+    }
+
     res.json({
       id: user._id,
       name: user.name,
-      email: user.email,
       phone: user.phone,
       role: user.role,
       wishlist: user.wishlist,
       followingSellers: user.followingSellers,
-      location: user.location
+      location: user.location,
+      isTrialActive: user.isTrialActive,
+      trialEndDate: user.trialEndDate,
+      isLocked: user.isLocked,
+      subscriptionLockDate: user.subscriptionLockDate,
+      hasSeenRules: user.hasSeenRules
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -117,7 +218,10 @@ router.put('/profile', authMiddleware, async (req, res) => {
     if (password) user.password = password;
     await user.save();
     res.json({ message: 'Profile updated' });
-  } catch (error) {
+  } catch (error: any) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: 'رقم الهاتف مستخدم بالفعل' });
+    }
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -181,11 +285,40 @@ router.post('/follow/:sellerId', authMiddleware, async (req, res) => {
 // Admin: Get all users
 router.get('/admin/users', authMiddleware, async (req, res) => {
   try {
-    if ((req as any).user.role !== 'admin') {
+    if ((req as any).user.role !== 'admin' && (req as any).user.role !== 'moderator') {
       return res.status(403).json({ message: 'Forbidden' });
     }
     const users = await User.find({}).select('-password');
     res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Admin: Toggle Lock User
+router.post('/admin/users/:id/toggle-lock', authMiddleware, async (req, res) => {
+  try {
+    if ((req as any).user.role !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    
+    user.isLocked = !user.isLocked;
+    
+    // If we are unlocking, we should probably push the subscriptionLockDate forward?
+    // User said: "lock the seller until it pays ... until I opens him"
+    // So unlocking should probably give them another month? 
+    // Usually if they pay, they get another 30 days.
+    if (!user.isLocked) {
+      user.lastPaymentDate = new Date();
+      const nextLockDate = new Date();
+      nextLockDate.setDate(nextLockDate.getDate() + 30);
+      user.subscriptionLockDate = nextLockDate;
+    }
+    
+    await user.save();
+    res.json({ message: user.isLocked ? 'User locked' : 'User unlocked', isLocked: user.isLocked });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
   }

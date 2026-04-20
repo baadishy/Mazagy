@@ -4,9 +4,9 @@ import { authService } from '../services/api';
 interface User {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   phone: string;
-  role: 'buyer' | 'seller' | 'admin';
+  role: 'buyer' | 'seller' | 'admin' | 'moderator' | 'user';
   wishlist: string[];
   followingSellers: string[];
   location: {
@@ -14,6 +14,11 @@ interface User {
     lat: number;
     lng: number;
   };
+  isTrialActive?: boolean;
+  trialEndDate?: string;
+  isLocked?: boolean;
+  subscriptionLockDate?: string;
+  hasSeenRules?: boolean;
 }
 
 interface AuthContextType {
@@ -26,6 +31,7 @@ interface AuthContextType {
   updateProfile: (data: any) => Promise<void>;
   toggleWishlist: (productId: string) => Promise<void>;
   getWishlist: () => Promise<any>;
+  acknowledgeRules: () => Promise<void>;
   followingSellers: string[];
   setFollowingSellers: (sellers: string[]) => void;
 }
@@ -96,6 +102,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return await authService.getWishlist();
   };
 
+  const acknowledgeRules = async () => {
+    if (!user) return;
+    try {
+      await authService.acknowledgeRules();
+      setUser({ ...user, hasSeenRules: true });
+    } catch (error) {
+      console.error('Error acknowledging rules:', error);
+      throw error;
+    }
+  };
+
   const setFollowingSellers = (sellers: string[]) => {
     if (user) {
       setUser({ ...user, followingSellers: sellers });
@@ -113,6 +130,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       updateProfile, 
       toggleWishlist, 
       getWishlist,
+      acknowledgeRules,
       followingSellers: user?.followingSellers || [],
       setFollowingSellers
     }}>

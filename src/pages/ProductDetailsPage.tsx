@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Star, Heart, ShoppingCart, ShieldCheck, Truck, MessageCircle, ChevronRight, ShoppingBag, Loader2, CheckCircle2, Send, Trash2, MapPin, Phone, Clock, Share2 } from 'lucide-react';
+import { Star, Heart, ShoppingCart, ShieldCheck, Truck, MessageCircle, ChevronRight, ShoppingBag, Loader2, CheckCircle2, Send, Trash2, MapPin, Phone, Clock, Share2, Palette, Ruler } from 'lucide-react';
 import { ProductCard } from '../components/ProductCard';
 import { motion, AnimatePresence } from 'motion/react';
 import { productService, orderService, reviewService, authService } from '../services/api';
@@ -8,6 +8,7 @@ import { Product, User } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { cn, formatWhatsAppNumber, formatDisplayPhone } from '../lib/utils';
 import { CATEGORIES } from '../constants';
+import { toast } from 'sonner';
 
 export const ProductDetailsPage = () => {
   const { id } = useParams();
@@ -26,6 +27,8 @@ export const ProductDetailsPage = () => {
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [isTogglingWishlist, setIsTogglingWishlist] = useState(false);
+  const [selectedColor, setSelectedColor] = useState('');
+  const [selectedSize, setSelectedSize] = useState('');
 
   // Review form state
   const [rating, setRating] = useState(5);
@@ -122,6 +125,16 @@ export const ProductDetailsPage = () => {
     }
     if (!product) return;
 
+    if (product.colors?.length && !selectedColor) {
+      toast.error('يرجى اختيار اللون أولاً');
+      return;
+    }
+
+    if (product.sizes?.length && !selectedSize) {
+      toast.error('يرجى اختيار المقاس أولاً');
+      return;
+    }
+
     setOrderLoading(true);
     try {
       await orderService.createOrder({
@@ -131,6 +144,8 @@ export const ProductDetailsPage = () => {
         buyerPhone: user.phone,
         buyerAddress: user.location?.address || '',
         quantity: 1,
+        selectedColor,
+        selectedSize,
         price: product.isOnSale && product.salePrice ? product.salePrice : product.price,
         deliveryFee: product.deliveryAvailable ? product.deliveryFee : 0
       });
@@ -289,7 +304,66 @@ export const ProductDetailsPage = () => {
               </div>
             </div>
 
-            <div className="text-5xl font-black text-primary">{displayPrice} ج.م</div>
+            <div className="text-5xl font-black text-primary mb-2">{displayPrice} ج.م</div>
+
+            {/* Selection Options */}
+            <div className="flex flex-col gap-8 py-6 border-y border-slate-100 my-4">
+              {(product.colors?.length || 0) > 0 && (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-2 text-slate-900 font-black">
+                    <Palette className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm">اختر اللون المفضل</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {product.colors?.map(color => (
+                      <button
+                        key={color}
+                        onClick={() => setSelectedColor(color)}
+                        className={cn(
+                          "px-5 py-2.5 rounded-2xl text-xs font-black border transition-all relative overflow-hidden group",
+                          selectedColor === color 
+                            ? "bg-slate-900 text-white border-slate-900 shadow-xl shadow-slate-200" 
+                            : "bg-white text-slate-500 border-slate-200 hover:border-primary hover:text-primary"
+                        )}
+                      >
+                        {color}
+                        {selectedColor === color && (
+                          <motion.div 
+                            layoutId="color-check"
+                            className="absolute inset-0 bg-primary/10 pointer-events-none"
+                          />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(product.sizes?.length || 0) > 0 && (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-2 text-slate-900 font-black">
+                    <Ruler className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm">اختر المقاس المناسب</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {product.sizes?.map(size => (
+                      <button
+                        key={size}
+                        onClick={() => setSelectedSize(size)}
+                        className={cn(
+                          "px-5 py-2.5 rounded-2xl text-xs font-black border transition-all relative overflow-hidden group",
+                          selectedSize === size 
+                            ? "bg-primary text-white border-primary shadow-xl shadow-primary/20" 
+                            : "bg-white text-slate-500 border-slate-200 hover:border-primary hover:text-primary"
+                        )}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="flex flex-col gap-3">
               <h3 className="font-bold text-slate-900">الوصف</h3>
@@ -298,24 +372,36 @@ export const ProductDetailsPage = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <button 
-                onClick={handleOrder}
-                disabled={orderLoading}
-                className="flex-1 bg-slate-900 text-white h-14 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-primary transition-all shadow-lg shadow-slate-200 disabled:opacity-50"
-              >
-                {orderLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShoppingCart className="w-5 h-5" />}
-                اطلب الآن
-              </button>
-              <a 
-                href={`https://wa.me/${formatWhatsAppNumber(product.sellerId?.phone || '')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 border-2 border-primary text-primary h-14 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-primary/5 transition-all"
-              >
-                <MessageCircle className="w-5 h-5" />
-                تواصل عبر واتساب
-              </a>
+            <div className="grid grid-cols-1 gap-4 mt-4">
+              {product.sellerId?.isLocked ? (
+                <div className="p-6 bg-rose-50 border border-rose-100 rounded-3xl text-center">
+                  <div className="flex items-center justify-center gap-2 text-rose-600 font-black mb-2">
+                    <ShieldCheck className="w-5 h-5" />
+                    المتجر متوقف مؤقتاً
+                  </div>
+                  <p className="text-secondary text-sm font-bold">عذراً، هذا البائع غير متاح حالياً لاستقبال الطلبات بسبب أعمال صيانة في الحساب.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    onClick={handleOrder}
+                    disabled={orderLoading}
+                    className="flex-1 bg-slate-900 text-white h-14 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-primary transition-all shadow-lg shadow-slate-200 disabled:opacity-50"
+                  >
+                    {orderLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShoppingCart className="w-5 h-5" />}
+                    اطلب الآن
+                  </button>
+                  <a 
+                    href={`https://wa.me/${formatWhatsAppNumber(product.sellerId?.phone || '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 border-2 border-primary text-primary h-14 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-primary/5 transition-all"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    تواصل عبر واتساب
+                  </a>
+                </div>
+              )}
             </div>
 
             <AnimatePresence>
@@ -352,11 +438,11 @@ export const ProductDetailsPage = () => {
                 </div>
                 <div>
                   <div className="text-sm font-bold text-slate-900">
-                    {product.warranty === 'no warranty' ? 'بدون ضمان' : 
-                     product.warranty === '6 months' ? 'ضمان 6 أشهر' :
+                    {product.warranty === '6 months' ? 'ضمان 6 أشهر' :
                      product.warranty === '1 year' ? 'ضمان لمدة عام' :
                      product.warranty === '2 years' ? 'ضمان لمدة عامين' :
-                     product.warranty === '3 years' ? 'ضمان لمدة 3 سنوات' : 'ضمان مدى الحياة'}
+                     product.warranty === '3 years' ? 'ضمان لمدة 3 سنوات' :
+                     product.warranty === 'lifetime' ? 'ضمان مدى الحياة' : 'بدون ضمان'}
                   </div>
                   <div className="text-[10px] text-slate-500">ضمان جودة معتمد</div>
                 </div>
@@ -423,22 +509,30 @@ export const ProductDetailsPage = () => {
                 </div>
 
                 <div className="flex flex-col gap-3 w-full lg:w-auto">
-                  <a 
-                    href={`https://wa.me/${formatWhatsAppNumber(typeof product.sellerId === 'object' ? product.sellerId.phone : '')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full lg:w-56 h-14 bg-emerald-500 text-white rounded-2xl font-black text-sm hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    تواصل واتساب
-                  </a>
-                  <Link 
-                    to={`/seller/${typeof product.sellerId === 'object' ? product.sellerId._id : product.sellerId}`} 
-                    className="w-full lg:w-56 h-14 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-primary transition-all shadow-lg shadow-slate-900/10 flex items-center justify-center gap-2"
-                  >
-                    <ShoppingBag className="w-5 h-5" />
-                    زيارة المتجر
-                  </Link>
+                  {product.sellerId?.isLocked ? (
+                    <div className="bg-rose-50 text-rose-600 px-6 py-4 rounded-2xl text-xs font-black text-center border border-rose-100">
+                      البائع متوقف مؤقتاً
+                    </div>
+                  ) : (
+                    <>
+                      <a 
+                        href={`https://wa.me/${formatWhatsAppNumber(typeof product.sellerId === 'object' ? product.sellerId.phone : '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full lg:w-56 h-14 bg-emerald-500 text-white rounded-2xl font-black text-sm hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+                      >
+                        <MessageCircle className="w-5 h-5" />
+                        تواصل واتساب
+                      </a>
+                      <Link 
+                        to={`/seller/${typeof product.sellerId === 'object' ? product.sellerId._id : product.sellerId}`} 
+                        className="w-full lg:w-56 h-14 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-primary transition-all shadow-lg shadow-slate-900/10 flex items-center justify-center gap-2"
+                      >
+                        <ShoppingBag className="w-5 h-5" />
+                        زيارة المتجر
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -481,7 +575,7 @@ export const ProductDetailsPage = () => {
                       </div>
                     </div>
                     <p className="text-sm text-slate-700 leading-relaxed">{review.comment}</p>
-                    {(user?._id === review.userId?._id || user?.role === 'admin') && (
+                    {(user?._id === review.userId?._id || user?.role === 'admin' || user?.role === 'moderator') && (
                       <button 
                         onClick={() => handleDeleteReview(review._id)}
                         className="mt-4 text-xs text-rose-500 font-bold hover:underline flex items-center gap-1"

@@ -12,14 +12,20 @@ export const NotificationBell = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (retryCount = 0) => {
     if (!user) return;
     try {
       const res = await notificationService.getNotifications();
       setNotifications(res.data);
       setUnreadCount(res.data.filter((n: any) => !n.read).length);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
+    } catch (error: any) {
+      // If it's a network error and we haven't retried too much, try again after a delay
+      if (error.message === 'Network Error' && retryCount < 3) {
+        console.warn(`Retrying notification fetch (${retryCount + 1})...`);
+        setTimeout(() => fetchNotifications(retryCount + 1), 2000);
+      } else {
+        console.error('Error fetching notifications:', error);
+      }
     }
   };
 

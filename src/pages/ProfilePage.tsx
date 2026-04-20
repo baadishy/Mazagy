@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { orderService, notificationService } from '../services/api';
 import { Order } from '../types';
 import { useLocation } from 'react-router-dom';
-import { cn } from '../lib/utils';
+import { cn, isEgyptianPhone } from '../lib/utils';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -118,7 +118,7 @@ export const ProfilePage = () => {
         const ordersRes = await orderService.getOrders();
         setOrders(ordersRes.data);
 
-        if (user.role === 'seller' || user.role === 'admin') {
+        if (user.role === 'seller' || user.role === 'admin' || user.role === 'moderator') {
           const statsRes = await orderService.getStats();
           setEarnings(statsRes.data);
         }
@@ -149,16 +149,21 @@ export const ProfilePage = () => {
   }, [activeTab, user, getWishlist]);
 
   useEffect(() => {
-    const fetchNotifications = async () => {
+    const fetchNotifications = async (retryCount = 0) => {
       if (activeTab === 'notifications' && user) {
         try {
-          setNotificationsLoading(true);
+          if (retryCount === 0) setNotificationsLoading(true);
           const res = await notificationService.getNotifications();
           setNotifications(res.data);
-        } catch (err) {
-          console.error('Failed to fetch notifications', err);
+        } catch (err: any) {
+          if (err.message === 'Network Error' && retryCount < 3) {
+            console.warn(`Retrying profile notifications fetch (${retryCount + 1})...`);
+            setTimeout(() => fetchNotifications(retryCount + 1), 2000);
+          } else {
+            console.error('Failed to fetch notifications', err);
+          }
         } finally {
-          setNotificationsLoading(false);
+          if (retryCount === 0 || retryCount >= 3) setNotificationsLoading(false);
         }
       }
     };
@@ -210,6 +215,12 @@ export const ProfilePage = () => {
     e.preventDefault();
     setSuccess('');
     setError('');
+    
+    if (!isEgyptianPhone(phone)) {
+      setError('يرجى إدخال رقم هاتف مصري صحيح (عشرة أرقام تبدأ بـ 01)');
+      return;
+    }
+
     try {
       await updateProfile({ 
         name, 
@@ -281,7 +292,7 @@ export const ProfilePage = () => {
             <h2 className="text-xl font-black text-slate-900">{user.name}</h2>
             <p className="text-secondary text-sm">عضو منذ {new Date().toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })}</p>
             <span className="inline-block mt-2 px-3 py-1 bg-primary/10 text-primary text-[10px] font-bold rounded-full uppercase">
-              {user.role === 'seller' ? 'بائع معتمد' : user.role === 'admin' ? 'مدير النظام' : 'مشتري'}
+              {user.role === 'seller' ? 'بائع معتمد' : user.role === 'admin' ? 'مدير النظام' : user.role === 'moderator' ? 'مشرف النظام' : 'مشتري'}
             </span>
           </div>
           
@@ -316,7 +327,7 @@ export const ProfilePage = () => {
             >
               <Bell className="w-4 h-4" /> التنبيهات
             </button>
-            {(user.role === 'seller' || user.role === 'admin') && (
+            {(user.role === 'seller' || user.role === 'admin' || user.role === 'moderator') && (
               <button 
                 onClick={() => setActiveTab('earnings')}
                 className={`w-full py-3 px-6 rounded-2xl font-bold text-sm text-right flex items-center gap-3 transition-all ${activeTab === 'earnings' ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'hover:bg-slate-50 text-secondary'}`}
@@ -375,18 +386,7 @@ export const ProfilePage = () => {
                         />
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-bold text-secondary px-2">البريد الإلكتروني</label>
-                      <div className="relative">
-                        <Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
-                        <input 
-                          type="email" 
-                          value={user?.email || ''} 
-                          disabled
-                          className="w-full bg-slate-100 border-none rounded-2xl pr-10 pl-4 py-3 text-sm cursor-not-allowed" 
-                        />
-                      </div>
-                    </div>
+                    {/* Phone Number Field */}
                     <div className="flex flex-col gap-2">
                       <label className="text-xs font-bold text-secondary px-2">رقم الهاتف / واتساب</label>
                       <div className="relative">
@@ -395,7 +395,8 @@ export const ProfilePage = () => {
                           type="text" 
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
-                          className="w-full bg-slate-50 border-none rounded-2xl pr-10 pl-4 py-3 text-sm focus:ring-2 focus:ring-primary/20" 
+                          dir="ltr"
+                          className="w-full bg-slate-50 border-none rounded-2xl pr-10 pl-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 text-right" 
                         />
                       </div>
                     </div>
@@ -835,7 +836,7 @@ export const ProfilePage = () => {
               </motion.div>
             )}
 
-            {activeTab === 'earnings' && (user.role === 'seller' || user.role === 'admin') && (
+            {activeTab === 'earnings' && (user.role === 'seller' || user.role === 'admin' || user.role === 'moderator') && (
               <motion.div 
                 key="earnings"
                 initial={{ opacity: 0, x: -20 }}
@@ -870,7 +871,7 @@ export const ProfilePage = () => {
                   </div>
                 </div>
 
-                {user.role === 'admin' && (
+                {(user.role === 'admin' || user.role === 'moderator') && (
                   <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-lg shadow-slate-200/50">
                     <div className="flex items-center justify-between">
                       <div>

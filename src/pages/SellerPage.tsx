@@ -139,33 +139,42 @@ export const SellerPage = () => {
 
               {/* Actions */}
               <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto lg:pb-4">
-                <a 
-                  href={`https://wa.me/${formatWhatsAppNumber(seller?.phone || '')}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="bg-primary text-white h-14 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 font-kufi text-sm sm:text-base w-full sm:px-8"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  <span className="whitespace-nowrap">تواصل عبر واتساب</span>
-                </a>
-                <button 
-                  onClick={handleFollow}
-                  disabled={followLoading}
-                  className={cn(
-                    "h-14 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all border font-kufi text-sm sm:text-base w-full sm:px-8",
-                    isFollowing 
-                      ? "bg-slate-50 text-slate-900 border-slate-200 hover:bg-slate-100" 
-                      : "bg-slate-900 text-white border-slate-900 hover:bg-slate-800",
-                    followLoading && "opacity-70 cursor-not-allowed"
-                  )}
-                >
-                  {followLoading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    isFollowing ? <UserMinus className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />
-                  )}
-                  <span className="whitespace-nowrap">{isFollowing ? 'إلغاء المتابعة' : 'متابعة المتجر'}</span>
-                </button>
+                {seller?.isLocked ? (
+                  <div className="bg-rose-50 text-rose-600 px-10 py-4 rounded-2xl text-sm font-black text-center border border-rose-100 flex items-center justify-center gap-2">
+                    <ShieldCheck className="w-5 h-5" />
+                    هذا المتجر متوقف مؤقتاً
+                  </div>
+                ) : (
+                  <>
+                    <a 
+                      href={`https://wa.me/${formatWhatsAppNumber(seller?.phone || '')}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="bg-primary text-white h-14 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 font-kufi text-sm sm:text-base w-full sm:px-8"
+                    >
+                      <MessageCircle className="w-5 h-5" />
+                      <span className="whitespace-nowrap">تواصل عبر واتساب</span>
+                    </a>
+                    <button 
+                      onClick={handleFollow}
+                      disabled={followLoading}
+                      className={cn(
+                        "h-14 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all border font-kufi text-sm sm:text-base w-full sm:px-8",
+                        isFollowing 
+                          ? "bg-slate-50 text-slate-900 border-slate-200 hover:bg-slate-100" 
+                          : "bg-slate-900 text-white border-slate-900 hover:bg-slate-800",
+                        followLoading && "opacity-70 cursor-not-allowed"
+                      )}
+                    >
+                      {followLoading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        isFollowing ? <UserMinus className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />
+                      )}
+                      <span className="whitespace-nowrap">{isFollowing ? 'إلغاء المتابعة' : 'متابعة المتجر'}</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

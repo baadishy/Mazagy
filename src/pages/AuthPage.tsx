@@ -44,6 +44,8 @@ const LocationPicker = ({ position, setPosition, setAddress }: { position: [numb
   );
 };
 
+import { isEgyptianPhone } from '../lib/utils';
+
 export const AuthPage = ({ type }: { type: 'login' | 'signup' }) => {
   const { login, signup } = useAuth();
   const navigate = useNavigate();
@@ -51,7 +53,6 @@ export const AuthPage = ({ type }: { type: 'login' | 'signup' }) => {
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
     password: '',
     phone: '',
     role: 'buyer',
@@ -86,8 +87,18 @@ export const AuthPage = ({ type }: { type: 'login' | 'signup' }) => {
     setError('');
     try {
       if (type === 'login') {
-        await login({ email: formData.email, password: formData.password });
+        if (!isEgyptianPhone(formData.phone)) {
+          setError('يرجى إدخال رقم هاتف مصري صحيح (مثال: 01012345678)');
+          setLoading(false);
+          return;
+        }
+        await login({ phone: formData.phone, password: formData.password });
       } else {
+        if (!isEgyptianPhone(formData.phone)) {
+          setError('يرجى إدخال رقم هاتف مصري صحيح (مثال: 01012345678)');
+          setLoading(false);
+          return;
+        }
         await signup(formData);
       }
       navigate('/');
@@ -132,17 +143,6 @@ export const AuthPage = ({ type }: { type: 'login' | 'signup' }) => {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full bg-slate-50 border-none rounded-2xl pr-12 pl-4 py-4 text-sm focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-              <div className="relative">
-                <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary" />
-                <input 
-                  type="tel" 
-                  placeholder="رقم الهاتف (واتساب)" 
-                  required
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full bg-slate-50 border-none rounded-2xl pr-12 pl-4 py-4 text-sm focus:ring-2 focus:ring-primary/20"
                 />
               </div>
@@ -195,17 +195,20 @@ export const AuthPage = ({ type }: { type: 'login' | 'signup' }) => {
               </div>
             </>
           )}
+          
           <div className="relative">
-            <Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary" />
+            <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary" />
             <input 
-              type="email" 
-              placeholder="البريد الإلكتروني" 
+              type="tel" 
+              placeholder="رقم الهاتف" 
               required
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full bg-slate-50 border-none rounded-2xl pr-12 pl-4 py-4 text-sm focus:ring-2 focus:ring-primary/20"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              dir="ltr"
+              className="w-full bg-slate-50 border-none rounded-2xl pr-12 pl-4 py-4 text-sm focus:ring-2 focus:ring-primary/20 text-right"
             />
           </div>
+          
           <div className="relative">
             <Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary" />
             <input 

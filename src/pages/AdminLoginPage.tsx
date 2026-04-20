@@ -60,7 +60,7 @@ export const AdminLoginPage = () => {
                   value={id}
                   onChange={(e) => setId(e.target.value)}
                   className="block w-full pl-10 pr-3 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black focus:border-transparent transition-all text-sm"
-                  placeholder="65f1a2b3c4d5e6f7a8b9c0d1"
+                  placeholder="65f1a2b3c4d5e6f7a8b9c0d2"
                 />
               </div>
             </div>

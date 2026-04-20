@@ -9,7 +9,7 @@ interface LogoProps {
 
 export const Logo = ({ className, variant = 'dark' }: LogoProps) => {
   return (
-    <div className={cn("flex items-center gap-3", className)}>
+    <div className={cn("flex items-center gap-3 w-fit", className)}>
       <div className="relative h-10 w-10 flex items-center justify-center shrink-0 group">
         {/* Outer Glow/Shadow */}
         <div className={cn(

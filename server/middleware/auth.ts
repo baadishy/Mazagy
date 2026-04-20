@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
+import { User } from '../models/User';
 
 import { JWT_SECRET } from '../config';
 
@@ -16,6 +17,21 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
     next();
   } catch (error) {
     return res.status(401).json({ message: 'Invalid token' });
+  }
+};
+
+export const lockMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  const userPayload = (req as any).user;
+  if (!userPayload) return res.status(401).json({ message: 'Unauthorized' });
+
+  try {
+    const user = await User.findById(userPayload.id);
+    if (user?.isLocked) {
+      return res.status(403).json({ message: 'حسابك موقوف مؤقتاً. يرجى مراجعة الإدارة.' });
+    }
+    next();
+  } catch (error) {
+    next();
   }
 };
 

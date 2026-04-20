@@ -2,15 +2,19 @@ import express from 'express';
 import { Product } from '../models/Product';
 import { User } from '../models/User';
 import { Notification } from '../models/Notification';
-import { authMiddleware, roleMiddleware } from '../middleware/auth';
-import { uploadToCloudinary } from '../utils/cloudinary';
+import { authMiddleware, roleMiddleware, lockMiddleware } from '../middleware/auth';
+import { uploadToCloudinary, deleteFromCloudinary } from '../utils/cloudinary';
 
 const router = express.Router();
 
 // Create Product
-router.post('/', authMiddleware, roleMiddleware(['seller', 'admin']), async (req, res) => {
+router.post('/', authMiddleware, roleMiddleware(['seller']), lockMiddleware, async (req, res) => {
   try {
-    const { name, description, price, images, category, stock, condition } = req.body;
+    const { 
+      name, description, price, images, category, stock, condition,
+      warranty, isOnSale, salePrice, saleStart, saleEnd, 
+      deliveryAvailable, deliveryFee, colors, sizes
+    } = req.body;
     
     const imageUrls = await Promise.all(
       images.map(async (img: string) => {
@@ -26,9 +30,18 @@ router.post('/', authMiddleware, roleMiddleware(['seller', 'admin']), async (req
       description,
       price,
       images: imageUrls,
+      colors,
+      sizes,
       category,
       stock,
       condition,
+      warranty,
+      isOnSale,
+      salePrice,
+      saleStart,
+      saleEnd,
+      deliveryAvailable,
+      deliveryFee,
       sellerId: (req as any).user.id
     });
 
@@ -93,7 +106,7 @@ router.get('/seller/:sellerId', async (req, res) => {
 // Get product by id
 router.get('/:id', async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id).populate('sellerId', 'name email phone location');
+    const product = await Product.findById(req.params.id).populate('sellerId', 'name email phone location isLocked');
     if (!product) return res.status(404).json({ message: 'Product not found' });
     res.json(product);
   } catch (error) {
@@ -103,18 +116,31 @@ router.get('/:id', async (req, res) => {
 });
 
 // Update product
-router.put('/:id', authMiddleware, async (req, res) => {
+router.put('/:id', authMiddleware, lockMiddleware, async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
     
-    if (product.sellerId.toString() !== (req as any).user.id && (req as any).user.role !== 'admin') {
+    // Check if user is seller (must be the owner of the product)
+    if (product.sellerId.toString() !== (req as any).user.id) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
     const updateData = { ...req.body };
     
     if (updateData.images && Array.isArray(updateData.images)) {
+      // Find images that were removed
+      const removedImages = product.images.filter(img => !updateData.images.includes(img));
+      
+      // Delete removed images from Cloudinary
+      await Promise.all(
+        removedImages.map(async (img: string) => {
+          if (img.includes('cloudinary.com')) {
+            await deleteFromCloudinary(img);
+          }
+        })
+      );
+
       updateData.images = await Promise.all(
         updateData.images.map(async (img: string) => {
           if (img.startsWith('data:image/')) {
@@ -136,13 +162,25 @@ router.put('/:id', authMiddleware, async (req, res) => {
 });
 
 // Delete product
-router.delete('/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', authMiddleware, lockMiddleware, async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: 'Product not found' });
     
-    if (product.sellerId.toString() !== (req as any).user.id && (req as any).user.role !== 'admin') {
+    // Check if user is seller (must be the owner of the product)
+    if (product.sellerId.toString() !== (req as any).user.id) {
       return res.status(403).json({ message: 'Forbidden' });
+    }
+    
+    // Delete images from Cloudinary
+    if (product.images && product.images.length > 0) {
+      await Promise.all(
+        product.images.map(async (img: string) => {
+          if (img.includes('cloudinary.com')) {
+            await deleteFromCloudinary(img);
+          }
+        })
+      );
     }
     
     await Product.findByIdAndDelete(req.params.id);

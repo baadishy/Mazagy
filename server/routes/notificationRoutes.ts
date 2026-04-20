@@ -10,6 +10,7 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     const notifications = await Notification.find({ userId })
       .sort({ createdAt: -1 })
+      .limit(50)
       .populate('productId', 'name images');
     
     res.json(notifications);
