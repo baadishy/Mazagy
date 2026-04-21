@@ -371,8 +371,11 @@ export const ProductDetailsPage = () => {
                   />
                 ))}
                 <span className="text-sm font-bold text-slate-900 mr-2">
-                  {product.averageRating || "0.0"}
+                  {product.averageRating > 0
+                    ? product.averageRating.toFixed(1)
+                    : "جديد"}
                 </span>
+
                 <span className="text-sm text-secondary">
                   ({product.numReviews || 0} تقييم)
                 </span>
@@ -648,14 +651,14 @@ export const ProductDetailsPage = () => {
                       href={`https://wa.me/${formatWhatsAppNumber(typeof product.sellerId === "object" ? product.sellerId.phone : "")}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex-1 lg:w-full h-16 bg-emerald-500 text-white rounded-[2rem] font-black text-base md:text-lg hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3 active:scale-95"
+                      className="flex-1 lg:w-full h-16 bg-emerald-500 text-white rounded-[2rem] font-black text-base md:text-lg hover:bg-emerald-600 transition-all shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3 active:scale-95 p-5"
                     >
                       <MessageCircle className="w-6 h-6" />
                       تواصل واتساب
                     </a>
                     <Link
                       to={`/seller/${typeof product.sellerId === "object" ? product.sellerId._id : product.sellerId}`}
-                      className="flex-1 lg:w-full h-16 bg-slate-900 text-white rounded-[2rem] font-black text-base md:text-lg hover:bg-primary transition-all shadow-xl shadow-slate-900/10 flex items-center justify-center gap-3 active:scale-95"
+                      className="flex-1 lg:w-full h-16 bg-slate-900 text-white rounded-[2rem] font-black text-base md:text-lg hover:bg-primary transition-all shadow-xl shadow-slate-900/10 flex items-center justify-center gap-3 active:scale-95 p-5"
                     >
                       <ShoppingBag className="w-6 h-6" />
                       زيارة المتجر
