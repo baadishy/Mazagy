@@ -19,6 +19,8 @@ interface User {
   isLocked?: boolean;
   subscriptionLockDate?: string;
   hasSeenRules?: boolean;
+  hasUnacknowledgedCommission?: boolean;
+  commissionRate?: number;
 }
 
 interface AuthContextType {
@@ -32,6 +34,7 @@ interface AuthContextType {
   toggleWishlist: (productId: string) => Promise<void>;
   getWishlist: () => Promise<any>;
   acknowledgeRules: () => Promise<void>;
+  acknowledgeCommission: () => Promise<void>;
   followingSellers: string[];
   setFollowingSellers: (sellers: string[]) => void;
 }
@@ -119,6 +122,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const acknowledgeCommission = async () => {
+    if (!user) return;
+    try {
+      await authService.acknowledgeCommission();
+      setUser({ ...user, hasUnacknowledgedCommission: false });
+    } catch (error) {
+      console.error('Error acknowledging commission:', error);
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -131,6 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toggleWishlist, 
       getWishlist,
       acknowledgeRules,
+      acknowledgeCommission,
       followingSellers: user?.followingSellers || [],
       setFollowingSellers
     }}>

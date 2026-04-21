@@ -3,7 +3,7 @@ export interface User {
   name: string;
   email: string;
   phone: string;
-  role: 'buyer' | 'seller' | 'admin' | 'moderator';
+  role: "buyer" | "seller" | "admin" | "moderator";
   wishlist: string[];
   location: {
     address: string;
@@ -17,6 +17,8 @@ export interface User {
   isLocked?: boolean;
   subscriptionLockDate?: string;
   hasSeenRules?: boolean;
+  hasUnacknowledgedCommission?: boolean;
+  commissionRate?: number;
 }
 
 export interface Product {
@@ -69,7 +71,7 @@ export interface Order {
   selectedSize?: string;
   price: number;
   deliveryFee: number;
-  status: 'pending' | 'confirmed' | 'rejected' | 'delivered';
+  status: "pending" | "confirmed" | "rejected" | "delivered";
   createdAt: string;
 }
 
