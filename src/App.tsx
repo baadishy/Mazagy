@@ -17,6 +17,7 @@ import { AddProductPage } from "./pages/AddProductPage";
 import { SupportPage } from "./pages/SupportPage";
 import { AdminLoginPage } from "./pages/AdminLoginPage";
 import SellerTermsPage from "./pages/SellerTermsPage";
+import { PromoPage } from "./pages/PromoPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { CommissionChangeModal } from "./components/CommissionChangeModal";
 import { Toaster } from "sonner";
@@ -103,6 +104,7 @@ export default function App() {
               </MainLayout>
             }
           />
+          <Route path="/promo" element={<PromoPage />} />
 
           {/* Auth Routes */}
           <Route path="/login" element={<AuthPage type="login" />} />
