@@ -137,7 +137,7 @@ const SellerTermsPage: React.FC = () => {
             <h3 className="text-xl font-black text-slate-900 relative z-10">طريقة الدفع (InstaPay)</h3>
             <p className="text-secondary text-sm leading-relaxed font-bold relative z-10">
               لتسهيل المعاملات، يتم الدفع للمنصة حصرياً عبر تطبيق إنستا باي على العنوان أو الرقم التالي: <br />
-              <span className="text-primary font-black dir-ltr inline-block mt-1">01559993943</span>
+              <span className="text-primary font-black dir-ltr inline-block mt-1">01006763805</span>
             </p>
           </motion.div>
         </div>
