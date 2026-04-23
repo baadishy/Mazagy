@@ -203,14 +203,15 @@ export const DashboardLayout = ({
                     className="text-xs sm:text-sm font-bold text-slate-500 select-all"
                     dir="ltr"
                   >
-                    01559993943
+                    01006763805
                   </div>
                 </div>
               </div>
 
               <p className="text-[11px] sm:text-xs text-secondary leading-relaxed bg-white/50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
-                بمجرد إتمام التحويل، يرجى التواصل مع الإدارة. سيقوم المسؤول
-                بمراجعة الطلب وتفعيل حسابك يدوياً فور التأكد.
+                بمجرد إتمام التحويل، يرجى التواصل مع الإدارة على الرقم
+                01559993943. سيقوم المسؤول بمراجعة الطلب وتفعيل حسابك يدوياً فور
+                التأكد.
               </p>
             </div>
 
