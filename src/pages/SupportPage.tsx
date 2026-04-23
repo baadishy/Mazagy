@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { Loader2, Globe, ShieldCheck, Zap } from 'lucide-react';
-import { orderService } from '../services/api';
-import { Logo } from '../components/Logo';
+import React, { useState, useEffect } from "react";
+import { motion } from "motion/react";
+import { Loader2, Globe, ShieldCheck, Zap } from "lucide-react";
+import { orderService } from "../services/api";
+import { Logo } from "../components/Logo";
 
 export const SupportPage = () => {
   const [stats, setStats] = useState<any>(null);
@@ -14,7 +14,7 @@ export const SupportPage = () => {
         const res = await orderService.getPublicStats();
         setStats(res.data);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
@@ -47,7 +47,8 @@ export const SupportPage = () => {
             <div className="space-y-4">
               <h1 className="text-4xl font-black text-slate-900">من نحن</h1>
               <p className="text-secondary text-lg max-w-2xl mx-auto leading-relaxed">
-                نحن نسعى لتقديم أفضل تجربة تسوق إلكتروني في مصر والوطن العربي، مع التركيز على الجودة والسرعة ورضا العملاء.
+                نحن نسعى لتقديم أفضل تجربة تسوق إلكتروني في مصر والوطن العربي،
+                مع التركيز على الجودة والسرعة ورضا العملاء.
               </p>
             </div>
           </div>
@@ -55,20 +56,34 @@ export const SupportPage = () => {
           {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 py-8 border-y border-slate-50">
             <div className="text-center space-y-2">
-              <div className="text-4xl font-black text-primary">{stats?.totalOrders || 0}</div>
-              <div className="text-sm font-bold text-slate-900 uppercase tracking-wider">طلب مكتمل</div>
+              <div className="text-4xl font-black text-primary">
+                {stats?.totalOrders || 0}
+              </div>
+              <div className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                طلب مكتمل
+              </div>
             </div>
             <div className="text-center space-y-2">
-              <div className="text-4xl font-black text-primary">{stats?.buyersCount || 0}</div>
-              <div className="text-sm font-bold text-slate-900 uppercase tracking-wider">مشتري</div>
+              <div className="text-4xl font-black text-primary">
+                {stats?.buyersCount || 0}
+              </div>
+              <div className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                مشتري
+              </div>
             </div>
             <div className="text-center space-y-2">
-              <div className="text-4xl font-black text-primary">{stats?.sellersCount || 0}</div>
-              <div className="text-sm font-bold text-slate-900 uppercase tracking-wider">بائع</div>
+              <div className="text-4xl font-black text-primary">
+                {stats?.sellersCount || 0}
+              </div>
+              <div className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                بائع
+              </div>
             </div>
             <div className="text-center space-y-2">
               <div className="text-4xl font-black text-primary">100%</div>
-              <div className="text-sm font-bold text-slate-900 uppercase tracking-wider">جودة مضمونة</div>
+              <div className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                جودة مضمونة
+              </div>
             </div>
           </div>
 
@@ -79,8 +94,12 @@ export const SupportPage = () => {
                 <Globe className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-sm font-black text-slate-900">تغطية واسعة</div>
-                <div className="text-[10px] text-secondary font-bold uppercase mt-1">نصل إليك في كل مكان</div>
+                <div className="text-sm font-black text-slate-900">
+                  تغطية واسعة
+                </div>
+                <div className="text-[10px] text-secondary font-bold uppercase mt-1">
+                  نصل إليك في كل مكان
+                </div>
               </div>
             </div>
             <div className="bg-slate-50 p-6 rounded-3xl flex flex-col items-center text-center gap-3 border border-slate-100">
@@ -88,8 +107,12 @@ export const SupportPage = () => {
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-sm font-black text-slate-900">تسوق آمن</div>
-                <div className="text-[10px] text-secondary font-bold uppercase mt-1">حماية كاملة لبياناتك</div>
+                <div className="text-sm font-black text-slate-900">
+                  تسوق آمن
+                </div>
+                <div className="text-[10px] text-secondary font-bold uppercase mt-1">
+                  حماية كاملة لبياناتك
+                </div>
               </div>
             </div>
             <div className="bg-slate-50 p-6 rounded-3xl flex flex-col items-center text-center gap-3 border border-slate-100">
@@ -97,8 +120,12 @@ export const SupportPage = () => {
                 <Zap className="w-5 h-5" />
               </div>
               <div>
-                <div className="text-sm font-black text-slate-900">سرعة فائقة</div>
-                <div className="text-[10px] text-secondary font-bold uppercase mt-1">توصيل سريع وموثوق</div>
+                <div className="text-sm font-black text-slate-900">
+                  سرعة فائقة
+                </div>
+                <div className="text-[10px] text-secondary font-bold uppercase mt-1">
+                  توصيل سريع وموثوق
+                </div>
               </div>
             </div>
           </div>
@@ -107,8 +134,26 @@ export const SupportPage = () => {
           <div className="bg-primary/5 p-8 rounded-[2rem] border border-primary/10">
             <h3 className="text-xl font-black text-slate-900 mb-4">رؤيتنا</h3>
             <p className="text-secondary text-sm leading-relaxed">
-              نحن نؤمن بأن الجودة والشفافية هما أساس النجاح. في متجرنا، نحرص على اختيار كل منتج بعناية فائقة لضمان رضاكم التام. هدفنا هو بناء علاقة ثقة طويلة الأمد مع كل عميل من خلال تقديم أفضل المنتجات والخدمات.
+              نحن نؤمن بأن الجودة والشفافية هما أساس النجاح. في متجرنا، نحرص على
+              اختيار كل منتج بعناية فائقة لضمان رضاكم التام. هدفنا هو بناء علاقة
+              ثقة طويلة الأمد مع كل عميل من خلال تقديم أفضل المنتجات والخدمات.
             </p>
+          </div>
+
+          {/* Contact Support */}
+          <div className="text-center pt-8 border-t border-slate-50">
+            <h3 className="text-xl font-black text-slate-900 mb-4">
+              الدعم الفني
+            </h3>
+            <p className="text-secondary text-sm mb-4">
+              يسعدنا تلقي استفساراتكم وملاحظاتكم عبر الهاتف
+            </p>
+            <a
+              href="tel:01559993943"
+              className="inline-flex items-center gap-3 px-8 py-4 bg-primary text-white rounded-full font-black text-lg hover:shadow-lg hover:shadow-primary/30 transition-all hover:-translate-y-1"
+            >
+              <span dir="ltr">01559993943</span>
+            </a>
           </div>
         </motion.div>
       </div>
