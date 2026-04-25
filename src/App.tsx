@@ -5,6 +5,7 @@ import {
   Route,
   useLocation,
 } from "react-router-dom";
+import { Analytics } from "@vercel/analytics/react";
 import { Header, Footer } from "./components/Layout";
 import { HomePage } from "./pages/HomePage";
 import { ProductListingPage } from "./pages/ProductListingPage";
@@ -46,6 +47,7 @@ export default function App() {
       <CommissionChangeModal />
       <Router>
         <ScrollToTop />
+        <Analytics />
         <Routes>
           {/* Main Store Routes */}
           <Route
