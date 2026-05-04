@@ -13,7 +13,7 @@ export default defineConfig(({mode}) => {
       VitePWA({
         registerType: 'autoUpdate',
         filename: 'service-worker.js',
-        includeAssets: ['logo.svg', 'robots.txt', 'apple-touch-icon.png'],
+        includeAssets: ['robots.txt', 'apple-touch-icon.png'],
         manifest: {
           name: 'مزاجي',
           short_name: 'مزاجي',
@@ -25,12 +25,6 @@ export default defineConfig(({mode}) => {
           scope: '/',
           start_url: '/',
           icons: [
-            {
-              src: '/logo.svg',
-              sizes: 'any',
-              type: 'image/svg+xml',
-              purpose: 'any',
-            },
             {
               src: '/pwa-192x192.png',
               sizes: '192x192',
