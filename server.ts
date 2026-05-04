@@ -124,14 +124,15 @@ app.use('/api/settings', settingsRoutes);
 const initDB = async () => {
   try {
     await connectDB();
+    // Don't immediately seed - let seeding happen asynchronously
     seedData().catch(err => console.error('Seeding failed:', err));
   } catch (err) {
     console.error('Database initialization failed:', err);
   }
 };
 
-// Start initialization
-initDB();
+// Asynchronously initialize - don't block server startup
+initDB().catch(console.error);
 
 // Vite / Static files
 // Never run Vite dev middleware inside Vercel Functions.
