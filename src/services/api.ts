@@ -1,10 +1,31 @@
 import axios from "axios";
+import { toast } from "sonner";
 
 const api = axios.create({
   baseURL: "/api",
   withCredentials: true,
   timeout: 15000,
 });
+
+let networkIssueToastVisible = false;
+
+const showNetworkIssueToast = () => {
+  if (networkIssueToastVisible) return;
+  networkIssueToastVisible = true;
+
+  toast.error("مشكلة في الاتصال بالشبكة", {
+    description:
+      "تعذر الاتصال بالخادم حالياً. يُرجى التحقق من الإنترنت ثم تحديث الصفحة.",
+    duration: 10000,
+    action: {
+      label: "تحديث الصفحة",
+      onClick: () => window.location.reload(),
+    },
+    onDismiss: () => {
+      networkIssueToastVisible = false;
+    },
+  });
+};
 
 api.interceptors.response.use(
   (response) => response,
@@ -22,6 +43,13 @@ api.interceptors.response.use(
       // Exponential backoff or simple delay
       await new Promise((resolve) => setTimeout(resolve, 1000));
       return api(config);
+    }
+
+    const isNetworkIssue =
+      error.message === "Network Error" || [503, 504].includes(response?.status);
+
+    if (isNetworkIssue) {
+      showNetworkIssueToast();
     }
 
     if (error.message === "Network Error") {

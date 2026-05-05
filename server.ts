@@ -113,6 +113,20 @@ app.get('/google692bae69f5b9af32.html', (req, res) => {
   res.send('google-site-verification: google692bae69f5b9af32.html');
 });
 
+// In serverless environments (e.g. Vercel), each cold start may need a fresh DB connect.
+// Ensure API requests wait for MongoDB before hitting Mongoose models to avoid buffering timeouts.
+app.use('/api', async (req, res, next) => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      await connectDB();
+    }
+    next();
+  } catch (error) {
+    console.error('DB middleware connection error:', error);
+    res.status(503).json({ message: 'Database unavailable. Please retry.' });
+  }
+});
+
 app.use('/api/auth', apiLimiter, authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
